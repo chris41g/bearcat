@@ -1,0 +1,21 @@
+# Ignore all .log files
+*.log
+
+# Ignore node_modules folder
+node_modules/
+
+# Ignore Python compiled files
+__pycache__/
+*.pyc
+
+# Ignore .env files
+.env
+
+# Ignore macOS system files
+.DS_Store
+
+activate.sh
+*test*.py
+create_db.py
+fix_single_target.py
+update_admin_password.py
