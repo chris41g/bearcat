@@ -1,0 +1,219 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-search me-2"></i>Scan Jobs</h1>
+    <a href="{{ url_for('scans.new') }}" class="btn btn-primary">
+        <i class="fas fa-plus me-2"></i>New Scan
+    </a>
+</div>
+
+<!-- Scan Jobs Table -->
+<div class="card">
+    <div class="card-header bg-dark text-white">
+        <h5 class="mb-0"><i class="fas fa-list me-2"></i>Scan History</h5>
+    </div>
+    <div class="card-body">
+        {% if jobs.items %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Target</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Online Hosts</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for job in jobs.items %}
+                    <tr>
+                        <td>{{ job.id }}</td>
+                        <td>{{ job.name }}</td>
+                        <td>
+                            <span class="badge bg-secondary">{{ job.target_type }}</span>
+                            {{ job.target }}
+                        </td>
+                        <td>
+                            {% if job.scan_type == 'basic' %}
+                            <span class="badge bg-info">Basic</span>
+                            {% else %}
+                            <span class="badge bg-warning">Full</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if job.status == 'pending' %}
+                            <span class="badge bg-secondary">Pending</span>
+                            {% elif job.status == 'running' %}
+                            <span class="badge bg-primary">Running</span>
+                            {% elif job.status == 'completed' %}
+                            <span class="badge bg-success">Completed</span>
+                            {% elif job.status == 'failed' %}
+                            <span class="badge bg-danger">Failed</span>
+                            {% elif job.status == 'cancelled' %}
+                            <span class="badge bg-warning">Cancelled</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ job.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ job.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            {% if job.hosts_online > 0 %}
+                            <span class="badge bg-success">{{ job.hosts_online }}</span>
+                            {% elif job.status == 'completed' %}
+                            <span class="badge bg-secondary">0</span>
+                            {% else %}
+                            <span class="badge bg-secondary">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="{{ url_for('scans.view', job_id=job.id) }}" class="btn btn-sm btn-outline-primary" 
+                                   title="View details">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if job.status == 'completed' and job.session_id %}
+                                <a href="{{ url_for('scans.results', job_id=job.id) }}" class="btn btn-sm btn-outline-success" 
+                                   title="View results">
+                                    <i class="fas fa-table"></i>
+                                </a>
+                                {% endif %}
+                                {% if job.status == 'running' %}
+                                <button type="button" class="btn btn-sm btn-outline-warning" 
+                                        data-bs-toggle="modal" data-bs-target="#cancelModal{{ job.id }}"
+                                        title="Cancel scan">
+                                    <i class="fas fa-stop"></i>
+                                </button>
+                                {% endif %}
+                                {% if job.status != 'running' %}
+                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                        data-bs-toggle="modal" data-bs-target="#deleteModal{{ job.id }}"
+                                        title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Cancel Modal -->
+                            {% if job.status == 'running' %}
+                            <div class="modal fade" id="cancelModal{{ job.id }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header bg-warning text-dark">
+                                            <h5 class="modal-title">Cancel Scan</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            Are you sure you want to cancel the scan <strong>{{ job.name }}</strong>?
+                                            This will stop the scan process, but any data collected so far will be saved.
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                            <form action="{{ url_for('scans.cancel', job_id=job.id) }}" method="post">
+                                                <button type="submit" class="btn btn-warning">Cancel Scan</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            <!-- Delete Modal -->
+                            {% if job.status != 'running' %}
+                            <div class="modal fade" id="deleteModal{{ job.id }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header bg-danger text-white">
+                                            <h5 class="modal-title">Delete Scan</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            Are you sure you want to delete the scan <strong>{{ job.name }}</strong>?
+                                            This will remove the job from the history, but will not delete the scan results from the database.
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                            <form action="{{ url_for('scans.delete', job_id=job.id) }}" method="post">
+                                                <button type="submit" class="btn btn-danger">Delete</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if jobs.pages > 1 %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if jobs.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('scans.index', page=jobs.prev_num) }}" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for page_num in jobs.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                        {% if page_num == jobs.page %}
+                        <li class="page-item active">
+                            <a class="page-link" href="{{ url_for('scans.index', page=page_num) }}">{{ page_num }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('scans.index', page=page_num) }}">{{ page_num }}</a>
+                        </li>
+                        {% endif %}
+                    {% else %}
+                    <li class="page-item disabled">
+                        <a class="page-link" href="#">...</a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if jobs.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('scans.index', page=jobs.next_num) }}" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-search fa-3x mb-3 text-muted"></i>
+            <p class="lead">No scan jobs found</p>
+            <a href="{{ url_for('scans.new') }}" class="btn btn-primary mt-3">
+                Start Your First Scan
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

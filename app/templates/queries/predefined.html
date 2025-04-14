@@ -1,0 +1,177 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-list-ul me-2"></i>Predefined Queries</h1>
+    <div>
+        <a href="{{ url_for('queries.index') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Queries
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-search me-2"></i>Query Selection</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ form.query_type.label(class="form-label") }}
+                        {{ form.query_type(class="form-select") }}
+                    </div>
+                    
+                    <div id="query_params_container">
+                        <div id="port_param" class="mb-3 param-field" style="display: none;">
+                            {{ form.port.label(class="form-label") }}
+                            {{ form.port(class="form-control", type="number") }}
+                        </div>
+                        
+                        <div id="software_param" class="mb-3 param-field" style="display: none;">
+                            {{ form.software.label(class="form-label") }}
+                            {{ form.software(class="form-control") }}
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+                
+                {% if saved_queries %}
+                <hr>
+                <h6>Saved Queries</h6>
+                <div class="list-group">
+                    {% for query in saved_queries %}
+                    <a href="{{ url_for('queries.run_saved', query_id=query.id) }}" class="list-group-item list-group-item-action">
+                        {{ query.name }}
+                        <small class="text-muted d-block">{{ query.query_key }}</small>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8 mb-4">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-table me-2"></i>Results
+                        {% if query_name %}
+                        <span class="badge bg-info ms-2">{{ query_name }}</span>
+                        {% endif %}
+                    </h5>
+                    
+                    {% if results %}
+                    <button class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#exportModal">
+                        <i class="fas fa-file-export me-1"></i>Export
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                {% if results %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                {% for key in results[0].keys() %}
+                                <th>{{ key }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in results %}
+                            <tr>
+                                {% for value in row.values() %}
+                                <td>{{ value }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                {% elif error %}
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    {{ error }}
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-database fa-3x mb-3 text-muted"></i>
+                    <p class="lead">Select and run a query to see results</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if results %}
+<!-- Export Modal -->
+<div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title">Export Results</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form action="{{ url_for('queries.export_results') }}" method="post">
+                    <input type="hidden" name="query_type" value="predefined">
+                    <input type="hidden" name="query_data" value='{"key": "{{ query_name }}", "params": {}}'>
+                    
+                    <p>Export the current query results to a CSV file.</p>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-file-csv me-2"></i>Export to CSV
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Query parameter toggling
+    document.addEventListener('DOMContentLoaded', function() {
+        var queryType = document.getElementById('query_type');
+        var queryParamsContainer = document.getElementById('query_params_container');
+        
+        if (queryType && queryParamsContainer) {
+            queryType.addEventListener('change', function() {
+                var selectedType = queryType.value;
+                
+                // Hide all parameter fields
+                var paramFields = queryParamsContainer.querySelectorAll('.param-field');
+                paramFields.forEach(function(field) {
+                    field.style.display = 'none';
+                });
+                
+                // Show relevant parameter fields based on query type
+                if (selectedType === 'hosts_with_port') {
+                    document.getElementById('port_param').style.display = 'block';
+                } else if (selectedType === 'hosts_with_software') {
+                    document.getElementById('software_param').style.display = 'block';
+                }
+            });
+            
+            // Trigger change event on page load
+            queryType.dispatchEvent(new Event('change'));
+        }
+    });
+</script>
+{% endblock %}

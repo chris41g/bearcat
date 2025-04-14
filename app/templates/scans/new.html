@@ -1,0 +1,173 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-plus me-2"></i>New Scan</h1>
+    <a href="{{ url_for('scans.index') }}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left me-2"></i>Back to Scans
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="fas fa-search me-2"></i>Scan Configuration</h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" novalidate>
+            {{ form.hidden_tag() }}
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        {{ form.name.label(class="form-label") }}
+                        {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else ""), placeholder="e.g., Weekly Network Scan") }}
+                        {% for error in form.name.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-text">Give your scan a descriptive name</div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        {{ form.scan_type.label(class="form-label") }}
+                        {{ form.scan_type(class="form-select" + (" is-invalid" if form.scan_type.errors else "")) }}
+                        {% for error in form.scan_type.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-text">Basic: Quick scan of online hosts. Full: Detailed scan with OS detection and service discovery</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        {{ form.target_type.label(class="form-label") }}
+                        {{ form.target_type(class="form-select" + (" is-invalid" if form.target_type.errors else ""), id="targetType") }}
+                        {% for error in form.target_type.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        {{ form.target.label(class="form-label") }}
+                        {{ form.target(class="form-control" + (" is-invalid" if form.target.errors else ""), id="targetInput") }}
+                        {% for error in form.target.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-text" id="targetHelp">Enter the target based on selected type</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        {{ form.workers.label(class="form-label") }}
+                        {{ form.workers(class="form-control" + (" is-invalid" if form.workers.errors else ""), type="number", min="1", max="500") }}
+                        {% for error in form.workers.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-text">Number of parallel workers (more = faster, but uses more system resources)</div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="mb-3 form-check mt-4">
+                        {{ form.find_foxit(class="form-check-input" + (" is-invalid" if form.find_foxit.errors else "")) }}
+                        {{ form.find_foxit.label(class="form-check-label") }}
+                        {% for error in form.find_foxit.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-text">Search for Foxit PDF license keys on Windows hosts</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-3 border-info">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="fas fa-lock me-2"></i>Windows Authentication (Optional)</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.username.label(class="form-label") }}
+                                {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), placeholder="domain\\username or username") }}
+                                {% for error in form.username.errors %}
+                                    <div class="invalid-feedback">{{ error }}</div>
+                                {% endfor %}
+                                <div class="form-text">Use domain\\username format for domain accounts</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.password.label(class="form-label") }}
+                                {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else "")) }}
+                                {% for error in form.password.errors %}
+                                    <div class="invalid-feedback">{{ error }}</div>
+                                {% endfor %}
+                                <div class="form-text">Password for Windows authentication</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Providing Windows credentials allows scanning for shares, installed software, and other system information.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <a href="{{ url_for('scans.index') }}" class="btn btn-secondary me-md-2">Cancel</a>
+                {{ form.submit(class="btn btn-primary") }}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Dynamic target field help text based on selected target type
+    document.addEventListener('DOMContentLoaded', function() {
+        const targetType = document.getElementById('targetType');
+        const targetInput = document.getElementById('targetInput');
+        const targetHelp = document.getElementById('targetHelp');
+        
+        function updateTargetHelp() {
+            const selected = targetType.value;
+            
+            // Update placeholder and help text based on selection
+            if (selected === 'subnet') {
+                targetInput.placeholder = 'e.g., 192.168.1.0/24';
+                targetHelp.textContent = 'Enter a subnet in CIDR notation';
+                targetInput.disabled = false;
+            } else if (selected === 'range') {
+                targetInput.placeholder = 'e.g., 192.168.1.1-192.168.1.254';
+                targetHelp.textContent = 'Enter an IP range (start-end)';
+                targetInput.disabled = false;
+            } else if (selected === 'target') {
+                targetInput.placeholder = 'e.g., 192.168.1.1';
+                targetHelp.textContent = 'Enter a single IP address';
+                targetInput.disabled = false;
+            } else if (selected === 'local') {
+                targetInput.placeholder = 'Scanning local networks...';
+                targetHelp.textContent = 'Will automatically detect and scan local networks';
+                targetInput.disabled = true;
+                targetInput.value = '';
+            }
+        }
+        
+        // Initial setup
+        updateTargetHelp();
+        
+        // Update when selection changes
+        targetType.addEventListener('change', updateTargetHelp);
+    });
+</script>
+{% endblock %}

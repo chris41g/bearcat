@@ -1,3 +1,0 @@
-# bearcat
-# bearcat
-# bearcat

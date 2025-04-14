@@ -1,0 +1,271 @@
+{% extends "layout.html" %}
+
+{% block extra_head %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+<h1 class="mb-4"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h1>
+
+<!-- Status Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white h-100">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-server me-2"></i>Total Hosts</h5>
+                <h2 class="display-4" id="totalHosts">{{ stats.total_hosts }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white h-100">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-check-circle me-2"></i>Online Hosts</h5>
+                <h2 class="display-4" id="onlineHosts">{{ stats.online_hosts }}</h2>
+                <p class="card-text" id="onlinePercentage">{{ "%.1f"|format(stats.online_percentage) }}% online</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white h-100">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-clock me-2"></i>Scan Sessions</h5>
+                <h2 class="display-4">{{ stats.scan_sessions }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark h-100">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-key me-2"></i>Foxit Licenses</h5>
+                <h2 class="display-4">{{ stats.foxit_license_count }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="fas fa-bolt me-2"></i>Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-2">
+                        <a href="{{ url_for('scans.new') }}" class="btn btn-primary w-100">
+                            <i class="fas fa-search me-2"></i>New Scan
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <a href="{{ url_for('queries.predefined') }}" class="btn btn-success w-100">
+                            <i class="fas fa-database me-2"></i>Run Query
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <a href="{{ url_for('scans.index') }}" class="btn btn-info w-100">
+                            <i class="fas fa-history me-2"></i>View Scan History
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Running Scans -->
+{% if running_jobs %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-spinner fa-spin me-2"></i>Running Scans</h5>
+            </div>
+            <div class="card-body">
+                {% for job in running_jobs %}
+                <div class="mb-3" data-scan-id="{{ job.id }}">
+                    <div class="d-flex justify-content-between mb-1">
+                        <div>
+                            <strong>{{ job.name }}</strong> - {{ job.target }}
+                        </div>
+                        <div class="host-counts">
+                            {{ job.hosts_scanned }} / {{ job.total_hosts }} hosts ({{ job.hosts_online }} online)
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                             role="progressbar"
+                             style="width: {{ job.progress }}%;"
+                             aria-valuenow="{{ job.progress }}"
+                             aria-valuemin="0"
+                             aria-valuemax="100">
+                            {{ "%.1f"|format(job.progress) }}%
+                        </div>
+                    </div>
+                    <div class="mt-1 text-end">
+                        <a href="{{ url_for('scans.view', job_id=job.id) }}" class="btn btn-sm btn-primary">
+                            View Details
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <!-- Host Status Chart -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Online Host Trends</h5>
+                <button id="refreshDashboard" class="btn btn-sm btn-light">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <div style="height: 300px;">
+                    <canvas id="hostTrendsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- OS Distribution Chart -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>OS Distribution</h5>
+            </div>
+            <div class="card-body">
+                <div style="height: 300px;">
+                    <canvas id="osDistributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Store chart data in a hidden element -->
+<div id="chart-data" style="display: none;">{{ chart_data|safe }}</div>
+
+<!-- Recent Scans and Top Ports -->
+<div class="row">
+    <!-- Recent Scans -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Scans</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_jobs %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Target</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for job in recent_jobs %}
+                            <tr>
+                                <td>{{ job.name }}</td>
+                                <td>{{ job.target }}</td>
+                                <td>
+                                    {% if job.status == 'running' %}
+                                    <span class="badge bg-primary">Running</span>
+                                    {% elif job.status == 'completed' %}
+                                    <span class="badge bg-success">Completed</span>
+                                    {% elif job.status == 'failed' %}
+                                    <span class="badge bg-danger">Failed</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ job.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ job.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>
+                                    <a href="{{ url_for('scans.view', job_id=job.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-center">No recent scan jobs found.</p>
+                {% endif %}
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('scans.index') }}" class="btn btn-primary">View All Scans</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Top Ports -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="fas fa-network-wired me-2"></i>Top Open Ports</h5>
+            </div>
+            <div class="card-body">
+                {% if stats.top_ports %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Port</th>
+                                <th>Service</th>
+                                <th>Host Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for port in stats.top_ports %}
+                            <tr>
+                                <td>{{ port.port }}</td>
+                                <td>
+                                    {% if port.service_name %}
+                                    {{ port.service_name }}
+                                    {% else %}
+                                    <span class="text-muted">unknown</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="progress flex-grow-1 me-2" style="height: 8px;">
+                                            <div class="progress-bar bg-success" 
+                                                 role="progressbar" 
+                                                 style="width: {{ (port.count / stats.top_ports[0].count) * 100 }}%"></div>
+                                        </div>
+                                        <span>{{ port.count }}</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-center">No port data available.</p>
+                {% endif %}
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('queries.predefined') }}" class="btn btn-primary">
+                        Query Ports
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

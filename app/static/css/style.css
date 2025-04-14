@@ -1,0 +1,147 @@
+/* Custom Styles for Network Discovery Web Interface */
+
+/* Body padding for fixed navbar */
+body {
+    padding-top: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Make the footer stick to the bottom */
+main {
+    flex: 1;
+}
+
+/* Card styles */
+.card {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    font-weight: 500;
+}
+
+/* Dashboard stats cards */
+.card .display-4 {
+    font-size: 2.5rem;
+    font-weight: 600;
+}
+
+/* Tables */
+.table th {
+    background-color: #f8f9fa;
+    border-top: none;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* Progress bars */
+.progress {
+    height: 10px;
+    border-radius: 5px;
+}
+
+/* Icons */
+.fa-spin {
+    animation-duration: 1.5s;
+}
+
+/* Status badges */
+.badge {
+    padding: 0.4em 0.6em;
+    font-weight: 500;
+}
+
+/* Login page */
+.login-container {
+    max-width: 400px;
+    margin: 0 auto;
+    padding-top: 100px;
+}
+
+/* Buttons */
+.btn-icon {
+    padding: 0.375rem 0.5rem;
+}
+
+/* Form help text */
+.form-text {
+    font-size: 0.75rem;
+}
+
+/* Code blocks for query results */
+pre.code-block {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 1rem;
+    font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.875rem;
+    overflow-x: auto;
+}
+
+/* Scan results display */
+.host-list .card {
+    transition: transform 0.2s;
+}
+
+.host-list .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Host details page */
+.property-table th {
+    width: 30%;
+    background-color: #f8f9fa;
+}
+
+/* Log output formatting */
+.log-output {
+    background-color: #212529;
+    color: #f8f9fa;
+    border-radius: 4px;
+    padding: 1rem;
+    font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.875rem;
+    overflow-x: auto;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Socket.IO connection status */
+.socket-status {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    z-index: 1000;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    display: none;
+}
+
+.socket-connected {
+    background-color: #28a745;
+    color: white;
+}
+
+.socket-disconnected {
+    background-color: #dc3545;
+    color: white;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card .display-4 {
+        font-size: 2rem;
+    }
+    
+    .hide-mobile {
+        display: none;
+    }
+}
