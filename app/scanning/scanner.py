@@ -9,7 +9,6 @@ import sqlite3
 from app.extensions import socketio, db
 from app.models import ScanJob
 import sys
-import shlex  # Import shlex for proper shell escaping
 
 def update_job_status(app, job_id, status, progress=None, hosts_scanned=None, hosts_online=None, 
                       session_id=None, log_output=None, completed=False, total_hosts=None):
@@ -80,7 +79,7 @@ def find_latest_session_id(app):
 def run_scanner(app, job_id, password_file=None):
     """Run the network scanner script as a subprocess and monitor progress."""
     import sys
-    print("********* USING UPDATED SCANNER.PY WITH PROPER PASSWORD QUOTING *********")
+    print("********* USING UPDATED SCANNER.PY WITH SHELL=TRUE *********")
     print(f"Starting scanner for job {job_id}")
     
     # Get password if provided in a file
@@ -153,90 +152,81 @@ def run_scanner(app, job_id, password_file=None):
         except Exception as e:
             print(f"WARNING: Could not make script executable: {e}")
     
-    # Add sudo to the command
-    cmd = ["sudo", python_path, scanner_path]
+    # Construct the command as a single string for shell execution
+    cmd_str = f"sudo {python_path} {scanner_path}"
     
     # Add target parameters
     if job_target_type == 'subnet':
-        cmd.extend(['-s', job_target])
+        cmd_str += f" -s {job_target}"
     elif job_target_type == 'range':
-        cmd.extend(['-r', job_target])
+        cmd_str += f" -r {job_target}"
     elif job_target_type == 'target':
-        cmd.extend(['-t', job_target])
+        cmd_str += f" -t {job_target}"
     elif job_target_type == 'local':
-        cmd.append('-l')
+        cmd_str += " -l"
     
-    # Add scan type - with extra debugging
+    # Add scan type
     print(f"Checking scan type: '{job_scan_type}'")
-    # Test for various possible values and formats
-    if job_scan_type == 'full':
-        cmd.append('-f')
+    if job_scan_type == 'full' or job_scan_type.lower() == 'full' or job_scan_type.strip() == 'full' or (job_scan_type and 'full' in job_scan_type):
+        cmd_str += " -f"
         print(f"Adding full scan flag: -f")
-    elif job_scan_type.lower() == 'full':
-        cmd.append('-f')
-        print(f"Adding full scan flag (case insensitive): -f")
-    elif job_scan_type.strip() == 'full':
-        cmd.append('-f')
-        print(f"Adding full scan flag (after stripping): -f")
-    elif job_scan_type and 'full' in job_scan_type:
-        cmd.append('-f')
-        print(f"Adding full scan flag (substring match): -f")
     else:
         print(f"Not adding full scan flag because scan_type='{job_scan_type}'")
     
     # Add workers
-    cmd.extend(['-w', str(job_workers)])
+    cmd_str += f" -w {job_workers}"
     
     # Add database path
-    cmd.extend(['--db-path', db_path])
+    cmd_str += f" --db-path {db_path}"
     
     # Add Windows authentication if provided
     if job_username:
         print(f"DEBUG: Username provided: {job_username}")
-        # Properly escape the username if it contains backslashes
-        quoted_username = shlex.quote(job_username)
-        cmd.extend(['-u', quoted_username])
+        # Escape any special characters in username
+        escaped_username = job_username.replace('"', '\\"').replace('$', '\\$')
+        cmd_str += f' -u "{escaped_username}"'
         
         # Check if password is available
         print(f"DEBUG: Password available: {'Yes' if password else 'No'}")
         if password:
             print(f"DEBUG: Password type: {type(password)}")
             print(f"DEBUG: Password length: {len(password)}")
-            print(f"DEBUG: Password contains special chars: {'Yes' if set('#$&*()[]{}|;\'"`~<>?!').intersection(password) else 'No'}")
             
-            # Properly quote the password to handle special characters
-            quoted_password = shlex.quote(password)
-            cmd.extend(['-p', quoted_password])
-            print(f"DEBUG: ADDED -p OPTION with properly quoted password of length {len(password)}")
+            # Check for special characters in password
+            special_chars = set('#$&*()[]{}|;\'"`~<>?!')
+            has_special = any(c in special_chars for c in password)
+            print(f"DEBUG: Password contains special chars: {'Yes' if has_special else 'No'}")
+            
+            # Escape any special characters in password
+            escaped_password = password.replace('"', '\\"').replace('$', '\\$')
+            cmd_str += f' -p "{escaped_password}"'
+            print(f"DEBUG: ADDED -p OPTION with properly escaped password")
         else:
-            cmd.append('--ask-password')
+            cmd_str += " --ask-password"
             print(f"DEBUG: ADDED --ask-password flag (no password provided)")
     
     # Add Foxit license search if enabled
     if job_find_foxit:
-        cmd.append('--find-foxit-license')
+        cmd_str += " --find-foxit-license"
         print(f"Foxit license search enabled")
+    
+    # Create a safe version for logging (without the actual password)
+    safe_cmd_str = cmd_str
+    if password:
+        safe_cmd_str = re.sub(r'-p\s+"[^"]+"', '-p "[PASSWORD REDACTED]"', safe_cmd_str)
     
     # Print environment info for debugging
     print("=== Environment Information ===")
     print(f"Python executable: {sys.executable}")
     print(f"Current working directory: {os.getcwd()}")
     print(f"PATH environment variable: {os.environ.get('PATH', '')}")
-    
-    # Create a safe version of the command for logging
-    safe_cmd = cmd.copy()
-    if '-p' in safe_cmd:
-        p_index = safe_cmd.index('-p')
-        if p_index + 1 < len(safe_cmd):
-            safe_cmd[p_index + 1] = '[PASSWORD REDACTED]'
-    
-    print(f"Command being run: {' '.join(safe_cmd)}")
+    print(f"Command being run: {safe_cmd_str}")
     print("==============================")
     
     # Log the command (but mask password)
-    print(f"Running command: {' '.join(safe_cmd)}")
+    print(f"Running shell command: {safe_cmd_str}")
     update_job_status(app, job_id, 'running', 
-                     log_output=f"Starting scan with command: {' '.join(safe_cmd)}",
+                     log_output=f"Starting scan with command: {safe_cmd_str}",
                      progress=10)  # Show some initial progress
     
     try:
@@ -247,15 +237,16 @@ def run_scanner(app, job_id, password_file=None):
         # Small delay to ensure everything is ready
         time.sleep(1)
         
-        # Create process with pipes for stdin/stdout/stderr
+        # Create process with shell=True to execute command as a shell string
         process = subprocess.Popen(
-            cmd,
+            cmd_str,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
-            universal_newlines=True
+            universal_newlines=True,
+            shell=True  # Use shell to execute the command
         )
         
         print(f"Process started with PID: {process.pid}")
