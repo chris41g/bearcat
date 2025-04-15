@@ -35,6 +35,9 @@ def new():
             
             # Get the plain text password from the form
             password_text = form.password.data
+            print(f"DEBUG: Form password provided: {'Yes' if password_text else 'No'}")
+            if password_text:
+                print(f"DEBUG: Password length from form: {len(password_text)}")
             
             # Create new scan job
             job = ScanJob(
@@ -67,10 +70,12 @@ def new():
                     f.write(password_text)
                 os.chmod(password_file, 0o600)  # Secure permissions
                 print(f"Password stored in temporary file: {password_file}")
+                print(f"DEBUG: Temporary file exists: {os.path.exists(password_file)}")
+                print(f"DEBUG: Temporary file readable: {os.access(password_file, os.R_OK)}")
+                print(f"DEBUG: Temporary file size: {os.path.getsize(password_file)}")
             
             # Start the scan job
-            print(f"Starting scan job {job.id}")
-            from app.scanning.scanner import start_scan_job
+            print(f"Starting scan job {job.id} with password_file: {password_file}")
             thread = start_scan_job(job.id, password_file)
             print(f"Scan job thread started: {thread}")
             

@@ -5,8 +5,19 @@ from app.models import User
 from app.extensions import db
 from datetime import datetime
 import os
-
+import subprocess
 main_bp = Blueprint('main', __name__)
+
+@main_bp.route('/testsudo')
+def testsudo():
+    result = subprocess.run(
+        ["sudo", "/opt/activediscovery/b-activedisc.py",'--help'],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+    return f"STDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}"
+
 
 @main_bp.route('/')
 def index():

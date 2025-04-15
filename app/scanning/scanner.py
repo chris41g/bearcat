@@ -9,6 +9,7 @@ import sqlite3
 from app.extensions import socketio, db
 from app.models import ScanJob
 import sys
+import shlex  # Import shlex for proper shell escaping
 
 def update_job_status(app, job_id, status, progress=None, hosts_scanned=None, hosts_online=None, 
                       session_id=None, log_output=None, completed=False, total_hosts=None):
@@ -79,6 +80,7 @@ def find_latest_session_id(app):
 def run_scanner(app, job_id, password_file=None):
     """Run the network scanner script as a subprocess and monitor progress."""
     import sys
+    print("********* USING UPDATED SCANNER.PY WITH PROPER PASSWORD QUOTING *********")
     print(f"Starting scanner for job {job_id}")
     
     # Get password if provided in a file
@@ -151,7 +153,8 @@ def run_scanner(app, job_id, password_file=None):
         except Exception as e:
             print(f"WARNING: Could not make script executable: {e}")
     
-    cmd = [python_path, scanner_path]
+    # Add sudo to the command
+    cmd = ["sudo", python_path, scanner_path]
     
     # Add target parameters
     if job_target_type == 'subnet':
@@ -189,14 +192,25 @@ def run_scanner(app, job_id, password_file=None):
     
     # Add Windows authentication if provided
     if job_username:
-        cmd.extend(['-u', job_username])
+        print(f"DEBUG: Username provided: {job_username}")
+        # Properly escape the username if it contains backslashes
+        quoted_username = shlex.quote(job_username)
+        cmd.extend(['-u', quoted_username])
         
-        # Only use --ask-password if we don't have the password
-        if not password:
-            cmd.append('--ask-password')
-            print(f"Using --ask-password flag (no password provided)")
+        # Check if password is available
+        print(f"DEBUG: Password available: {'Yes' if password else 'No'}")
+        if password:
+            print(f"DEBUG: Password type: {type(password)}")
+            print(f"DEBUG: Password length: {len(password)}")
+            print(f"DEBUG: Password contains special chars: {'Yes' if set('#$&*()[]{}|;\'"`~<>?!').intersection(password) else 'No'}")
+            
+            # Properly quote the password to handle special characters
+            quoted_password = shlex.quote(password)
+            cmd.extend(['-p', quoted_password])
+            print(f"DEBUG: ADDED -p OPTION with properly quoted password of length {len(password)}")
         else:
-            print(f"Password will be provided via stdin")
+            cmd.append('--ask-password')
+            print(f"DEBUG: ADDED --ask-password flag (no password provided)")
     
     # Add Foxit license search if enabled
     if job_find_foxit:
@@ -208,14 +222,18 @@ def run_scanner(app, job_id, password_file=None):
     print(f"Python executable: {sys.executable}")
     print(f"Current working directory: {os.getcwd()}")
     print(f"PATH environment variable: {os.environ.get('PATH', '')}")
-    print(f"Command being run: {' '.join(cmd)}")
+    
+    # Create a safe version of the command for logging
+    safe_cmd = cmd.copy()
+    if '-p' in safe_cmd:
+        p_index = safe_cmd.index('-p')
+        if p_index + 1 < len(safe_cmd):
+            safe_cmd[p_index + 1] = '[PASSWORD REDACTED]'
+    
+    print(f"Command being run: {' '.join(safe_cmd)}")
     print("==============================")
     
     # Log the command (but mask password)
-    safe_cmd = cmd.copy()
-    if '--ask-password' in safe_cmd:
-        safe_cmd.append('[PASSWORD REDACTED]')
-    
     print(f"Running command: {' '.join(safe_cmd)}")
     update_job_status(app, job_id, 'running', 
                      log_output=f"Starting scan with command: {' '.join(safe_cmd)}",
@@ -225,6 +243,9 @@ def run_scanner(app, job_id, password_file=None):
         # Get the current working directory
         cwd = os.getcwd()
         print(f"Current working directory: {cwd}")
+        
+        # Small delay to ensure everything is ready
+        time.sleep(1)
         
         # Create process with pipes for stdin/stdout/stderr
         process = subprocess.Popen(
@@ -238,15 +259,6 @@ def run_scanner(app, job_id, password_file=None):
         )
         
         print(f"Process started with PID: {process.pid}")
-        
-        # If password is needed and provided, send it to stdin
-        if job_username and password:
-            print(f"Providing password for authentication")
-            try:
-                process.stdin.write(password + '\n')
-                process.stdin.flush()
-            except Exception as e:
-                print(f"Error writing password to stdin: {str(e)}")
         
         # Initialize counters
         hosts_scanned = 0
@@ -296,7 +308,7 @@ def run_scanner(app, job_id, password_file=None):
                     if sudo_regex.search(stderr_line):
                         print("Detected sudo password prompt in stderr, script requires sudo")
                         update_job_status(app, job_id, 'failed', 
-                                         log_output="Error: Script requires sudo privileges. Please run the scan from the command line or modify the script to not require sudo.",
+                                         log_output="Error: Script requires sudo privileges. Please configure sudo to allow running this script without a password using 'NOPASSWD' in the sudoers file.",
                                          completed=True)
                         # Terminate the process
                         process.terminate()
@@ -320,7 +332,7 @@ def run_scanner(app, job_id, password_file=None):
                 if sudo_regex.search(line):
                     print("Detected sudo password prompt in stdout, script requires sudo")
                     update_job_status(app, job_id, 'failed', 
-                                     log_output="Error: Script requires sudo privileges. Please run the scan from the command line or modify the script to not require sudo.",
+                                     log_output="Error: Script requires sudo privileges. Please configure sudo to allow running this script without a password using 'NOPASSWD' in the sudoers file.",
                                      completed=True)
                     # Terminate the process
                     process.terminate()
@@ -447,7 +459,7 @@ def run_scanner(app, job_id, password_file=None):
             # Check for sudo prompt in remaining stderr
             if sudo_regex.search(stderr_output):
                 update_job_status(app, job_id, 'failed', 
-                               log_output="Error: Script requires sudo privileges. Please run the scan from the command line or modify the script to not require sudo.",
+                               log_output="Error: Script requires sudo privileges. Please configure sudo to allow running this script without a password using 'NOPASSWD' in the sudoers file.",
                                completed=True)
             else:
                 update_job_status(app, job_id, 'running', log_output=f"ERRORS: {stderr_output}")
