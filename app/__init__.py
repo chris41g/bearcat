@@ -58,7 +58,23 @@ def create_app(config_class=Config):
     def inject_now():
         from datetime import datetime
         return {'now': datetime.now()}
+
+    @app.after_request
+    def add_header(response):
+        # Fix content type headers for HTML responses
+        if response.mimetype == 'text/html':
+            response.headers['Content-Type'] = 'text/html; charset=utf-8'
     
+        # Add cache control headers
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    
+        # Add security headers
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+    
+        return response
+
     return app
 
 # Import models to ensure they are registered with SQLAlchemy

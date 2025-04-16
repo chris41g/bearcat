@@ -1,0 +1,35 @@
+DEBUG - Raw SMB Output:
+  $Recycle.Bin                      DHS        0  Tue Nov 12 07:43:47 2024
+  Apps                                D        0  Sun May 12 21:20:19 2019
+  bootTel.dat                        HS       80  Mon Oct 18 08:10:31 2021
+  Brother                             D        0  Tue Jul 23 11:16:28 2019
+  Config.Msi                        DHS        0  Tue Apr 15 09:03:52 2025
+  Dell                                D        0  Sun May 12 22:00:01 2019
+  dell.sdr                          AHR    29516  Sun May 12 21:37:05 2019
+  Deployment.log                      A     1461  Mon Sep  9 09:50:13 2024
+  Documents and Settings          DHSrn        0  Tue Jul  9 12:46:00 2019
+  Downloads                           D        0  Mon Mar 23 08:25:33 2020
+  Drivers                             D        0  Sun May 12 21:18:35 2019
+  DumpStack.log                     AHS     8192  Fri Jul 19 10:18:41 2024
+  DumpStack.log.tmp                 AHS    12288  Fri Apr 11 14:48:09 2025
+  hiberfil.sys                     AHSn 3350495232  Fri Apr 11 14:48:06 2025
+  inetpub                             D        0  Fri Apr 11 14:44:10 2025
+  Intel                               D        0  Fri Apr 11 14:48:10 2025
+  Lync4.tlb                           A   437780  Wed Nov  8 22:53:36 2017
+  Msgrua.tlb                          A    31476  Wed Nov  8 22:53:36 2017
+  OneDriveTemp                       DH        0  Wed May  1 14:33:30 2024
+  pagefile.sys                      AHS 20042625024  Fri Apr 11 14:48:09 2025
+  PerfLogs                            D        0  Sat May  7 00:24:50 2022
+  Program Files                      DR        0  Thu Mar 27 12:51:00 2025
+  Program Files (x86)                DR        0  Thu Mar 27 12:51:18 2025
+  ProgramData                       DHn        0  Thu Mar 27 12:51:00 2025
+  Recovery                           DH        0  Mon Sep  9 21:08:51 2024
+  swapfile.sys                      AHS 16777216  Fri Apr 11 14:48:09 2025
+  System Volume Information         DHS        0  Tue Apr 15 09:45:16 2025
+  tasks.log                           A      728  Mon Sep  9 08:29:39 2024
+  TMP                                 D        0  Thu Mar 27 16:32:21 2025
+  Users                              DR        0  Mon Jan  6 17:30:35 2025
+  Windows                             D        0  Fri Apr 11 14:44:13 2025
+  WindowsSensor.exe                   A 63081136  Wed May 19 08:46:04 2021
+
+		62057471 blocks of size 4096. 13909269 blocks available

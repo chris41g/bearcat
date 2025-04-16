@@ -62,7 +62,8 @@ def login():
         else:
             flash('Invalid username or password', 'danger')
     
-    return render_template('login.html', title='Sign In', form=form)
+    # Use our fixed template
+    return render_template('login_fixed.html', title='Sign In', form=form)
 
 @main_bp.route('/logout')
 @login_required
@@ -71,6 +72,23 @@ def logout():
     logout_user()
     flash('You have been logged out.', 'info')
     return redirect(url_for('main.login'))
+
+@main_bp.route('/login_test')
+def login_test():
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Test Login</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body>
+        <h1>Bearcat Login Test</h1>
+        <p>This is a simple test page. If you can see this text, the basic rendering is working.</p>
+    </body>
+    </html>
+    """
 
 @main_bp.route('/about')
 def about():
