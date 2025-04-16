@@ -1,8 +1,21 @@
-// Dashboard-specific JavaScript
+// Dashboard-specific JavaScript for Bearcat Active Discovery
 
 // Track chart instances to prevent multiple initializations
 let trendChart = null;
 let osChart = null;
+
+// Define Bearcat color palette
+const bearcatColors = {
+    primary: '#651D32',    // Main maroon
+    secondary: '#8A2846',  // Lighter maroon
+    gray: '#4A4A4A',       // Dark gray
+    lightGray: '#777777',  // Light gray
+    // Add more shades as needed
+    chartColors: [
+        '#651D32', '#8A2846', '#4A4A4A', '#777777', '#B33B59', 
+        '#964355', '#593035', '#2E1A1F', '#CCB3BB', '#E6D7DB'
+    ]
+};
 
 function initDashboardCharts(chartData) {
     console.log("Initializing dashboard charts with data:", chartData);
@@ -27,8 +40,8 @@ function initDashboardCharts(chartData) {
                     {
                         label: 'Online Hosts',
                         data: chartData.sessions.online_hosts,
-                        borderColor: '#28a745',
-                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        borderColor: bearcatColors.secondary,
+                        backgroundColor: 'rgba(138, 40, 70, 0.1)',
                         borderWidth: 2,
                         fill: true,
                         tension: 0.4
@@ -36,8 +49,8 @@ function initDashboardCharts(chartData) {
                     {
                         label: 'Total Hosts',
                         data: chartData.sessions.total_hosts,
-                        borderColor: '#007bff',
-                        backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                        borderColor: bearcatColors.primary,
+                        backgroundColor: 'rgba(101, 29, 50, 0.1)',
                         borderWidth: 2,
                         fill: true,
                         tension: 0.4
@@ -65,13 +78,7 @@ function initDashboardCharts(chartData) {
                 labels: chartData.os_distribution.labels,
                 datasets: [{
                     data: chartData.os_distribution.counts,
-                    backgroundColor: [
-                        '#007bff',
-                        '#28a745',
-                        '#ffc107',
-                        '#dc3545',
-                        '#6c757d'
-                    ],
+                    backgroundColor: bearcatColors.chartColors,
                     borderWidth: 1
                 }]
             },

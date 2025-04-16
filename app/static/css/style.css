@@ -1,4 +1,12 @@
-/* Custom Styles for Network Discovery Web Interface */
+/* Custom Styles for Bearcat Active Discovery Web Interface */
+
+:root {
+    --bearcat-maroon: #651D32;
+    --bearcat-white: #ffffff;
+    --bearcat-black: #000000;
+    --bearcat-gray: #f8f9fa;
+    --bearcat-dark-gray: #6c757d;
+}
 
 /* Body padding for fixed navbar */
 body {
@@ -6,11 +14,43 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 /* Make the footer stick to the bottom */
 main {
     flex: 1;
+}
+
+/* Navbar customization */
+.navbar-dark {
+    background-color: var(--bearcat-maroon) !important;
+}
+
+.navbar-brand img {
+    height: 40px;
+    margin-right: 10px;
+}
+
+/* Button customization */
+.btn-primary {
+    background-color: var(--bearcat-maroon);
+    border-color: var(--bearcat-maroon);
+}
+
+.btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+    background-color: #7a2e45 !important;  /* Slightly lighter maroon for hover */
+    border-color: #7a2e45 !important;
+}
+
+.btn-outline-primary {
+    color: var(--bearcat-maroon);
+    border-color: var(--bearcat-maroon);
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--bearcat-maroon);
+    border-color: var(--bearcat-maroon);
 }
 
 /* Card styles */
@@ -23,26 +63,51 @@ main {
     font-weight: 500;
 }
 
+.card-header.bg-primary {
+    background-color: var(--bearcat-maroon) !important;
+}
+
 /* Dashboard stats cards */
 .card .display-4 {
     font-size: 2.5rem;
     font-weight: 600;
 }
 
+.bg-primary {
+    background-color: var(--bearcat-maroon) !important;
+}
+
+.text-primary {
+    color: var(--bearcat-maroon) !important;
+}
+
+/* Badges */
+.badge.bg-primary {
+    background-color: var(--bearcat-maroon) !important;
+}
+
+.badge.bg-info {
+    background-color: #3A8C9E !important;  /* Complementary to maroon */
+}
+
 /* Tables */
 .table th {
-    background-color: #f8f9fa;
+    background-color: var(--bearcat-gray);
     border-top: none;
 }
 
 .table-hover tbody tr:hover {
-    background-color: rgba(0, 123, 255, 0.05);
+    background-color: rgba(101, 29, 50, 0.05);  /* Very light maroon for hover */
 }
 
 /* Progress bars */
 .progress {
     height: 10px;
     border-radius: 5px;
+}
+
+.progress-bar-primary, .progress-bar {
+    background-color: var(--bearcat-maroon);
 }
 
 /* Icons */
@@ -63,6 +128,15 @@ main {
     padding-top: 100px;
 }
 
+.login-logo {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.login-logo img {
+    max-width: 120px;
+}
+
 /* Buttons */
 .btn-icon {
     padding: 0.375rem 0.5rem;
@@ -75,7 +149,7 @@ main {
 
 /* Code blocks for query results */
 pre.code-block {
-    background-color: #f8f9fa;
+    background-color: var(--bearcat-gray);
     border: 1px solid #e9ecef;
     border-radius: 4px;
     padding: 1rem;
@@ -97,13 +171,13 @@ pre.code-block {
 /* Host details page */
 .property-table th {
     width: 30%;
-    background-color: #f8f9fa;
+    background-color: var(--bearcat-gray);
 }
 
 /* Log output formatting */
 .log-output {
     background-color: #212529;
-    color: #f8f9fa;
+    color: var(--bearcat-white);
     border-radius: 4px;
     padding: 1rem;
     font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -135,6 +209,11 @@ pre.code-block {
     color: white;
 }
 
+/* Footer customization */
+footer.bg-dark {
+    background-color: var(--bearcat-maroon) !important;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .card .display-4 {
@@ -143,5 +222,9 @@ pre.code-block {
     
     .hide-mobile {
         display: none;
+    }
+    
+    .navbar-brand img {
+        height: 30px;
     }
 }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }} - Network Discovery</title>
+    <title>{{ title }} - Bearcat Active Discovery</title>
     
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
@@ -14,6 +14,9 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     
+    <!-- Favicon -->
+    <link rel="shortcut icon" href="{{ url_for('static', filename='img/bearcat_favicon.ico') }}" type="image/x-icon">
+    
     <!-- Additional head content -->
     {% block extra_head %}{% endblock %}
 </head>
@@ -22,7 +25,8 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="{{ url_for('main.index') }}">
-                <i class="fas fa-network-wired me-2"></i>Network Discovery
+                <img src="{{ url_for('static', filename='img/bearcat_logo.png') }}" alt="Bearcat Logo"> 
+                Bearcat Active Discovery
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
                     aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -92,7 +96,7 @@
     <!-- Footer -->
     <footer class="bg-dark text-light py-3 mt-5">
         <div class="container text-center">
-            <p class="mb-0">Network Discovery Web Interface &copy; {{ now.year }}</p>
+            <p class="mb-0">Bearcat Active Discovery &copy; {{ now.year }}</p>
         </div>
     </footer>
     

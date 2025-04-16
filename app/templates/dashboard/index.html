@@ -9,10 +9,10 @@
 {% block content %}
 <h1 class="mb-4"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h1>
 
-<!-- Status Cards -->
+<!-- Status Cards with Maroon and Gray Shades -->
 <div class="row mb-4">
     <div class="col-md-3">
-        <div class="card bg-primary text-white h-100">
+        <div class="card h-100" style="background-color: #651D32; color: white;">
             <div class="card-body">
                 <h5 class="card-title"><i class="fas fa-server me-2"></i>Total Hosts</h5>
                 <h2 class="display-4" id="totalHosts">{{ stats.total_hosts }}</h2>
@@ -20,7 +20,7 @@
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card bg-success text-white h-100">
+        <div class="card h-100" style="background-color: #8A2846; color: white;">
             <div class="card-body">
                 <h5 class="card-title"><i class="fas fa-check-circle me-2"></i>Online Hosts</h5>
                 <h2 class="display-4" id="onlineHosts">{{ stats.online_hosts }}</h2>
@@ -29,7 +29,7 @@
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card bg-info text-white h-100">
+        <div class="card h-100" style="background-color: #4A4A4A; color: white;">
             <div class="card-body">
                 <h5 class="card-title"><i class="fas fa-clock me-2"></i>Scan Sessions</h5>
                 <h2 class="display-4">{{ stats.scan_sessions }}</h2>
@@ -37,7 +37,7 @@
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card bg-warning text-dark h-100">
+        <div class="card h-100" style="background-color: #777777; color: white;">
             <div class="card-body">
                 <h5 class="card-title"><i class="fas fa-key me-2"></i>Foxit Licenses</h5>
                 <h2 class="display-4">{{ stats.foxit_license_count }}</h2>
@@ -46,6 +46,7 @@
     </div>
 </div>
 
+<!-- Rest of the dashboard content -->
 <!-- Quick Actions -->
 <div class="row mb-4">
     <div class="col-12">
@@ -61,12 +62,12 @@
                         </a>
                     </div>
                     <div class="col-md-4 mb-2">
-                        <a href="{{ url_for('queries.predefined') }}" class="btn btn-success w-100">
+                        <a href="{{ url_for('queries.predefined') }}" class="btn btn-primary w-100">
                             <i class="fas fa-database me-2"></i>Run Query
                         </a>
                     </div>
                     <div class="col-md-4 mb-2">
-                        <a href="{{ url_for('scans.index') }}" class="btn btn-info w-100">
+                        <a href="{{ url_for('scans.index') }}" class="btn btn-primary w-100">
                             <i class="fas fa-history me-2"></i>View Scan History
                         </a>
                     </div>
@@ -244,9 +245,9 @@
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <div class="progress flex-grow-1 me-2" style="height: 8px;">
-                                            <div class="progress-bar bg-success" 
+                                            <div class="progress-bar" 
                                                  role="progressbar" 
-                                                 style="width: {{ (port.count / stats.top_ports[0].count) * 100 }}%"></div>
+                                                 style="width: {{ (port.count / stats.top_ports[0].count) * 100 }}%; background-color: #651D32;"></div>
                                         </div>
                                         <span>{{ port.count }}</span>
                                     </div>
