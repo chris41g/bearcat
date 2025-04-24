@@ -24,4 +24,5 @@ run_with_sudo.sh
 program_files_output.txt
 print_env.py
 check_foxit_licenses.py
+net*.db
 
