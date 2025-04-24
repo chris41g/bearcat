@@ -1,0 +1,286 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-laptop me-2"></i>Host Details</h1>
+    <div>
+        <a href="{{ url_for('queries.index') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Queries
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Basic Info -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Basic Information</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-striped property-table">
+                    <tr>
+                        <th>IP Address</th>
+                        <td>{{ host.ip }}</td>
+                    </tr>
+                    <tr>
+                        <th>Hostname</th>
+                        <td>{{ host.hostname or '-' }}</td>
+                    </tr>
+                    <tr>
+                        <th>MAC Address</th>
+                        <td>{{ host.mac_address or '-' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Operating System</th>
+                        <td>{{ host.os or 'Unknown' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Status</th>
+                        <td>
+                            <span class="badge bg-success">Online</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Scan Time</th>
+                        <td>{{ host.scan_time }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Services -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-network-wired me-2"></i>Open Ports & Services</h5>
+            </div>
+            <div class="card-body">
+                {% if host.services %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Port</th>
+                                <th>Service</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for service in host.services %}
+                            <tr>
+                                <td>{{ service.port }}</td>
+                                <td>{{ service.service_name or 'unknown' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-center text-muted py-3">No open ports detected</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Shares -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-folder-open me-2"></i>Network Shares</h5>
+            </div>
+            <div class="card-body">
+                {% if host.shares %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Share Name</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for share in host.shares %}
+                            <tr>
+                                <td>{{ share.share_name }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-center text-muted py-3">No network shares detected</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- System Info -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-desktop me-2"></i>System Information</h5>
+            </div>
+            <div class="card-body">
+                {% if host.system_info %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Key</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for info in host.system_info %}
+                            <tr>
+                                <td>
+                                    {% if info.key == 'foxit_license_key' %}
+                                    <strong class="text-success">{{ info.key }}</strong>
+                                    {% else %}
+                                    {{ info.key }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if info.key == 'foxit_license_key' %}
+                                    <span class="font-monospace bg-light p-1 rounded">{{ info.value }}</span>
+                                    <button class="btn btn-sm btn-outline-primary ms-2 btn-copy" 
+                                            data-clipboard-text="{{ info.value }}" 
+                                            title="Copy to clipboard">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                    {% else %}
+                                    {{ info.value }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-center text-muted py-3">No system information available</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Software -->
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="fas fa-cubes me-2"></i>Installed Software</h5>
+            </div>
+            <div class="card-body">
+                {% if host.installed_software %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Version</th>
+                                <th>Path</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for software in host.installed_software %}
+                            <tr>
+                                <td>{{ software.name }}</td>
+                                <td>{{ software.version or '-' }}</td>
+                                <td>{{ software.path or '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-center text-muted py-3">No installed software detected</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Running Services -->
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Running Services</h5>
+            </div>
+            <div class="card-body">
+                {% if host.running_services %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Display Name</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for service in host.running_services %}
+                            <tr>
+                                <td>{{ service.name }}</td>
+                                <td>{{ service.display_name or '-' }}</td>
+                                <td>
+                                    {% if service.status == 'Running' %}
+                                    <span class="badge bg-success">Running</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ service.status or 'Unknown' }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-center text-muted py-3">No running services information available</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Add clipboard copy functionality for Foxit license keys
+    document.addEventListener('DOMContentLoaded', function() {
+        const copyButtons = document.querySelectorAll('.btn-copy');
+        
+        copyButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const textToCopy = this.getAttribute('data-clipboard-text');
+                
+                // Create a temporary textarea element to copy text
+                const textarea = document.createElement('textarea');
+                textarea.value = textToCopy;
+                textarea.setAttribute('readonly', '');
+                textarea.style.position = 'absolute';
+                textarea.style.left = '-9999px';
+                document.body.appendChild(textarea);
+                
+                // Select and copy the text
+                textarea.select();
+                document.execCommand('copy');
+                
+                // Remove the textarea
+                document.body.removeChild(textarea);
+                
+                // Show success indicator
+                const originalHtml = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-check"></i>';
+                this.classList.add('btn-success');
+                this.classList.remove('btn-outline-primary');
+                
+                // Reset after 2 seconds
+                setTimeout(() => {
+                    this.innerHTML = originalHtml;
+                    this.classList.remove('btn-success');
+                    this.classList.add('btn-outline-primary');
+                }, 2000);
+            });
+        });
+    });
+</script>
+{% endblock %}

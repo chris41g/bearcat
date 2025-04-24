@@ -83,16 +83,35 @@
                         <thead>
                             <tr>
                                 {% for key in results[0].keys() %}
-                                <th>{{ key }}</th>
+                                {% if key not in ['id', 'scan_time'] %}
+                                <th scope="col">{{ key }}</th>
+                                {% endif %}
                                 {% endfor %}
+                                <th scope="col" class="text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for row in results %}
                             <tr>
-                                {% for value in row.values() %}
+                                {% for key, value in row.items() %}
+                                {% if key not in ['id', 'scan_time'] %}
                                 <td>{{ value }}</td>
+                                {% endif %}
                                 {% endfor %}
+                                <td class="text-center">
+                                    {% if 'id' in row %}
+                                    <a href="{{ url_for('queries.host_details', host_id=row.id) }}" class="btn btn-sm btn-outline-primary" title="View host details">
+                                        <i class="fas fa-info-circle"></i>
+                                    </a>
+                                    {% elif 'ip' in row %}
+                                    <form action="{{ url_for('queries.index') }}" method="get" class="d-inline">
+                                        <input type="hidden" name="search_ip" value="{{ row.ip }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-info" title="Search for this host">
+                                            <i class="fas fa-search"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>

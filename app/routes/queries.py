@@ -13,6 +13,32 @@ queries_bp = Blueprint('queries', __name__)
 @login_required
 def index():
     """Show query interface."""
+    # Check if we have a search_ip parameter for looking up hosts
+    search_ip = request.args.get('search_ip')
+    if search_ip:
+        # Look up the host ID for this IP
+        try:
+            conn = sqlite3.connect(current_app.config['DATABASE_PATH'])
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # Find the most recent entry for this IP
+            cursor.execute("""
+                SELECT id FROM hosts WHERE ip = ? ORDER BY scan_time DESC LIMIT 1
+            """, (search_ip,))
+            
+            host = cursor.fetchone()
+            conn.close()
+            
+            if host:
+                # Redirect to host details
+                return redirect(url_for('queries.host_details', host_id=host['id']))
+            else:
+                flash(f'No host found with IP: {search_ip}', 'warning')
+        except Exception as e:
+            flash(f'Error looking up host: {str(e)}', 'danger')
+    
+    # Regular rendering if no search_ip or if lookup failed
     return render_template('queries/index.html', title='Query Database')
 
 @queries_bp.route('/predefined', methods=['GET', 'POST'])
@@ -236,8 +262,97 @@ def export_results():
         flash(f'Error exporting results: {str(e)}', 'danger')
         return redirect(url_for('queries.index'))
 
+@queries_bp.route('/host/<int:host_id>')
+@login_required
+def host_details(host_id):
+    """View detailed host information from query results."""
+    try:
+        conn = sqlite3.connect(current_app.config['DATABASE_PATH'])
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Get host info
+        cursor.execute("""
+            SELECT * FROM hosts WHERE id = ?
+        """, (host_id,))
+        
+        host = cursor.fetchone()
+        if not host:
+            flash('Host not found in database.', 'warning')
+            return redirect(url_for('queries.index'))
+        
+        host_dict = dict(host)
+        
+        # Get services
+        cursor.execute("""
+            SELECT port, service_name
+            FROM services
+            WHERE host_id = ?
+            ORDER BY port
+        """, (host_id,))
+        host_dict['services'] = cursor.fetchall()
+        
+        # Get shares
+        cursor.execute("""
+            SELECT share_name
+            FROM shares
+            WHERE host_id = ?
+            ORDER BY share_name
+        """, (host_id,))
+        host_dict['shares'] = cursor.fetchall()
+        
+        # Get system info
+        cursor.execute("""
+            SELECT key, value
+            FROM system_info
+            WHERE host_id = ?
+            ORDER BY key
+        """, (host_id,))
+        host_dict['system_info'] = cursor.fetchall()
+        
+        # Get installed software
+        cursor.execute("""
+            SELECT name, version, path
+            FROM installed_software
+            WHERE host_id = ?
+            ORDER BY name
+        """, (host_id,))
+        host_dict['installed_software'] = cursor.fetchall()
+        
+        # Get running services
+        cursor.execute("""
+            SELECT name, display_name, status
+            FROM running_services
+            WHERE host_id = ?
+            ORDER BY name
+        """, (host_id,))
+        host_dict['running_services'] = cursor.fetchall()
+        
+        conn.close()
+        
+        return render_template(
+            'queries/host_details.html',
+            title=f'Host Details: {host_dict["ip"]}',
+            host=host_dict,
+            from_query=True
+        )
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting host details: {str(e)}")
+        flash(f'Error retrieving host details: {str(e)}', 'danger')
+        return redirect(url_for('queries.index'))
+
 def run_predefined_query(query_name, params=None):
-    """Run a predefined query with parameters."""
+    """
+    Execute a predefined query against the database.
+    
+    Args:
+        query_name (str): Name of the query in SAMPLE_QUERIES
+        params (dict): Parameters for the query
+        
+    Returns:
+        list: Query results as a list of dictionaries
+    """
     if params is None:
         params = {}
     
@@ -250,8 +365,15 @@ def run_predefined_query(query_name, params=None):
         queries = {
             'online_hosts': {
                 'sql': """
-                    SELECT h.ip, h.hostname, h.os, h.mac_address, h.scan_time
+                    WITH LatestHosts AS (
+                        SELECT ip, MAX(scan_time) as latest_scan_time
+                        FROM hosts
+                        WHERE status = 'online'
+                        GROUP BY ip
+                    )
+                    SELECT h.id, h.ip, h.hostname, h.os, h.mac_address, h.scan_time
                     FROM hosts h
+                    JOIN LatestHosts lh ON h.ip = lh.ip AND h.scan_time = lh.latest_scan_time
                     WHERE h.status = 'online'
                     ORDER BY h.ip
                 """,
@@ -259,7 +381,7 @@ def run_predefined_query(query_name, params=None):
             },
             'hosts_with_port': {
                 'sql': """
-                    SELECT h.ip, h.hostname, h.os, s.port, s.service_name
+                    SELECT h.id, h.ip, h.hostname, h.os, s.port, s.service_name
                     FROM hosts h
                     JOIN services s ON h.id = s.host_id
                     WHERE s.port = ? AND h.status = 'online'
@@ -269,7 +391,7 @@ def run_predefined_query(query_name, params=None):
             },
             'hosts_with_software': {
                 'sql': """
-                    SELECT h.ip, h.hostname, h.os, i.name, i.version
+                    SELECT h.id, h.ip, h.hostname, h.os, i.name, i.version
                     FROM hosts h
                     JOIN installed_software i ON h.id = i.host_id
                     WHERE i.name LIKE ? AND h.status = 'online'
@@ -279,7 +401,7 @@ def run_predefined_query(query_name, params=None):
             },
             'hosts_with_foxit': {
                 'sql': """
-                    SELECT h.ip, h.hostname, h.os, si.value AS foxit_license_key
+                    SELECT h.id, h.ip, h.hostname, h.os, si.value AS foxit_license_key
                     FROM hosts h
                     JOIN system_info si ON h.id = si.host_id
                     WHERE si.key = 'foxit_license_key' AND h.status = 'online'
@@ -299,7 +421,7 @@ def run_predefined_query(query_name, params=None):
             },
             'windows_hosts': {
                 'sql': """
-                    SELECT h.ip, h.hostname, h.os, h.mac_address, h.scan_time
+                    SELECT h.id, h.ip, h.hostname, h.os, h.mac_address, h.scan_time
                     FROM hosts h
                     WHERE h.status = 'online' AND 
                           (h.os LIKE '%Windows%' OR h.os LIKE '%Microsoft%')
@@ -309,7 +431,7 @@ def run_predefined_query(query_name, params=None):
             },
             'linux_hosts': {
                 'sql': """
-                    SELECT h.ip, h.hostname, h.os, h.mac_address, h.scan_time
+                    SELECT h.id, h.ip, h.hostname, h.os, h.mac_address, h.scan_time
                     FROM hosts h
                     WHERE h.status = 'online' AND 
                           (h.os LIKE '%Linux%' OR h.os LIKE '%Ubuntu%' OR h.os LIKE '%Debian%')
@@ -319,11 +441,11 @@ def run_predefined_query(query_name, params=None):
             },
             'hosts_with_admin_shares': {
                 'sql': """
-                    SELECT h.ip, h.hostname, h.os, s.share_name
+                    SELECT h.id, h.ip, h.hostname, h.os, s.share_name
                     FROM hosts h
                     JOIN shares s ON h.id = s.host_id
                     WHERE h.status = 'online' AND
-                          (s.share_name = 'C OR s.share_name = 'ADMIN OR s.share_name = 'IPC)
+                          (s.share_name = 'C$' OR s.share_name = 'ADMIN$' OR s.share_name = 'IPC$')
                     ORDER BY h.ip, s.share_name
                 """,
                 'params': []

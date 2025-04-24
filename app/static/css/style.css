@@ -228,3 +228,71 @@ footer.bg-dark {
         height: 30px;
     }
 }
+/* Add these styles to the end of app/static/css/style.css */
+
+/* Responsive table improvements */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Ensure Actions column has minimum width */
+.table th:last-child, .table td:last-child {
+    min-width: 80px;
+    width: 80px;
+    text-align: center;
+}
+
+/* Make action buttons more visible */
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+}
+
+/* Highlight rows on hover */
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+/* Improve system info table display */
+.property-table th {
+    width: 30%;
+    background-color: #f8f9fa;
+}
+
+/* Highlight Foxit license keys */
+.font-monospace.bg-light {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+
+/* Copy button styles */
+.btn-copy {
+    vertical-align: middle;
+}
+
+/* Fix table width issues */
+.table {
+    width: 100%;
+    table-layout: auto;
+}
+
+/* Ensure the whole page content is scrollable when needed */
+.container {
+    max-width: 1320px;
+    width: 100%;
+}
+
+@media (max-width: 992px) {
+    /* Adjust card layout on smaller screens */
+    .card {
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Make action columns more compact on mobile */
+    .table th:last-child, .table td:last-child {
+        min-width: 60px;
+        width: 60px;
+    }
+}
