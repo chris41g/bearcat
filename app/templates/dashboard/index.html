@@ -9,27 +9,31 @@
 {% block content %}
 <h1 class="mb-4"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h1>
 
-<!-- Status Cards with Maroon and Gray Shades -->
+# Update the relevant part of app/templates/dashboard/index.html
+
+<!-- Status Cards -->
 <div class="row mb-4">
     <div class="col-md-3">
-        <div class="card h-100" style="background-color: #651D32; color: white;">
+        <div class="card bg-primary text-white h-100">
             <div class="card-body">
-                <h5 class="card-title"><i class="fas fa-server me-2"></i>Total Hosts</h5>
+                <h5 class="card-title"><i class="fas fa-server me-2"></i>Unique Hosts</h5>
                 <h2 class="display-4" id="totalHosts">{{ stats.total_hosts }}</h2>
+                <p class="small text-light">Count of unique IP addresses</p>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card h-100" style="background-color: #8A2846; color: white;">
+        <div class="card bg-success text-white h-100">
             <div class="card-body">
-                <h5 class="card-title"><i class="fas fa-check-circle me-2"></i>Online Hosts</h5>
+                <h5 class="card-title"><i class="fas fa-check-circle me-2"></i>Unique Online</h5>
                 <h2 class="display-4" id="onlineHosts">{{ stats.online_hosts }}</h2>
                 <p class="card-text" id="onlinePercentage">{{ "%.1f"|format(stats.online_percentage) }}% online</p>
+                <p class="small text-light">Most recent status for each IP</p>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card h-100" style="background-color: #4A4A4A; color: white;">
+        <div class="card bg-info text-white h-100">
             <div class="card-body">
                 <h5 class="card-title"><i class="fas fa-clock me-2"></i>Scan Sessions</h5>
                 <h2 class="display-4">{{ stats.scan_sessions }}</h2>
@@ -37,10 +41,11 @@
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card h-100" style="background-color: #777777; color: white;">
+        <div class="card bg-warning text-dark h-100">
             <div class="card-body">
                 <h5 class="card-title"><i class="fas fa-key me-2"></i>Foxit Licenses</h5>
                 <h2 class="display-4">{{ stats.foxit_license_count }}</h2>
+                <p class="small text-dark">Unique hosts with licenses</p>
             </div>
         </div>
     </div>
