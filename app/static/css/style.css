@@ -1,11 +1,14 @@
-/* Custom Styles for Bearcat Active Discovery Web Interface */
+/* Custom Styles for Sidney with maroon, black, and gray color scheme */
 
+/* Color scheme variables */
 :root {
-    --bearcat-maroon: #651D32;
-    --bearcat-white: #ffffff;
-    --bearcat-black: #000000;
-    --bearcat-gray: #f8f9fa;
-    --bearcat-dark-gray: #6c757d;
+    --maroon: #800020;
+    --dark-maroon: #580016;
+    --light-maroon: #a02040;
+    --black: #212529;
+    --dark-gray: #343a40;
+    --gray: #6c757d;
+    --light-gray: #f8f9fa;
 }
 
 /* Body padding for fixed navbar */
@@ -14,43 +17,11 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 /* Make the footer stick to the bottom */
 main {
     flex: 1;
-}
-
-/* Navbar customization */
-.navbar-dark {
-    background-color: var(--bearcat-maroon) !important;
-}
-
-.navbar-brand img {
-    height: 40px;
-    margin-right: 10px;
-}
-
-/* Button customization */
-.btn-primary {
-    background-color: var(--bearcat-maroon);
-    border-color: var(--bearcat-maroon);
-}
-
-.btn-primary:hover, .btn-primary:focus, .btn-primary:active {
-    background-color: #7a2e45 !important;  /* Slightly lighter maroon for hover */
-    border-color: #7a2e45 !important;
-}
-
-.btn-outline-primary {
-    color: var(--bearcat-maroon);
-    border-color: var(--bearcat-maroon);
-}
-
-.btn-outline-primary:hover {
-    background-color: var(--bearcat-maroon);
-    border-color: var(--bearcat-maroon);
 }
 
 /* Card styles */
@@ -63,8 +34,38 @@ main {
     font-weight: 500;
 }
 
-.card-header.bg-primary {
-    background-color: var(--bearcat-maroon) !important;
+/* Override Bootstrap colors */
+.bg-primary {
+    background-color: var(--maroon) !important;
+}
+
+.btn-primary {
+    background-color: var(--maroon) !important;
+    border-color: var(--dark-maroon) !important;
+}
+
+.btn-primary:hover {
+    background-color: var(--dark-maroon) !important;
+}
+
+.text-primary {
+    color: var(--maroon) !important;
+}
+
+/* Navbar */
+.navbar-dark {
+    background-color: var(--black) !important;
+}
+
+/* Logo styling */
+.navbar-brand {
+    display: flex;
+    align-items: center;
+}
+
+.navbar-brand img {
+    height: 30px;
+    margin-right: 8px;
 }
 
 /* Dashboard stats cards */
@@ -73,31 +74,61 @@ main {
     font-weight: 600;
 }
 
-.bg-primary {
-    background-color: var(--bearcat-maroon) !important;
+/* Dashboard specific styling */
+.dashboard-card {
+    border: none;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    overflow: hidden;
+    height: 100%;
+    color: white;
 }
 
-.text-primary {
-    color: var(--bearcat-maroon) !important;
+/* First card - Unique Hosts - keep as maroon */
+.dashboard-card:nth-of-type(1) {
+    background-color: var(--maroon);
 }
 
-/* Badges */
-.badge.bg-primary {
-    background-color: var(--bearcat-maroon) !important;
+/* Second card - Unique Online - dark gray */
+.dashboard-card:nth-of-type(2) {
+    background-color: var(--gray);
 }
 
-.badge.bg-info {
-    background-color: #3A8C9E !important;  /* Complementary to maroon */
+/* Third card - Scan Sessions - black */
+.dashboard-card:nth-of-type(3) {
+    background-color: var(--black);
+}
+
+/* Fourth card - Foxit Licenses - different shade of maroon */
+.dashboard-card:nth-of-type(4) {
+    background-color: var(--light-maroon);
+}
+
+/* Quick Actions section */
+.quick-actions {
+    background-color: var(--light-gray);
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.quick-actions .btn-primary {
+    background-color: var(--maroon);
+    border-color: var(--dark-maroon);
+}
+
+.quick-actions .btn-primary:hover {
+    background-color: var(--dark-maroon);
 }
 
 /* Tables */
 .table th {
-    background-color: var(--bearcat-gray);
+    background-color: var(--light-gray);
     border-top: none;
 }
 
 .table-hover tbody tr:hover {
-    background-color: rgba(101, 29, 50, 0.05);  /* Very light maroon for hover */
+    background-color: rgba(128, 0, 32, 0.05);
 }
 
 /* Progress bars */
@@ -106,8 +137,8 @@ main {
     border-radius: 5px;
 }
 
-.progress-bar-primary, .progress-bar {
-    background-color: var(--bearcat-maroon);
+.progress-bar {
+    background-color: var(--maroon);
 }
 
 /* Icons */
@@ -121,6 +152,18 @@ main {
     font-weight: 500;
 }
 
+.badge.bg-success {
+    background-color: var(--maroon) !important;
+}
+
+.badge.bg-danger {
+    background-color: #dc3545 !important;
+}
+
+.badge.bg-secondary {
+    background-color: var(--gray) !important;
+}
+
 /* Login page */
 .login-container {
     max-width: 400px;
@@ -128,18 +171,19 @@ main {
     padding-top: 100px;
 }
 
-.login-logo {
-    text-align: center;
-    margin-bottom: 2rem;
-}
-
-.login-logo img {
-    max-width: 120px;
-}
-
 /* Buttons */
 .btn-icon {
     padding: 0.375rem 0.5rem;
+}
+
+.btn-outline-primary {
+    color: var(--maroon) !important;
+    border-color: var(--maroon) !important;
+}
+
+.btn-outline-primary:hover {
+    color: white !important;
+    background-color: var(--maroon) !important;
 }
 
 /* Form help text */
@@ -149,7 +193,7 @@ main {
 
 /* Code blocks for query results */
 pre.code-block {
-    background-color: var(--bearcat-gray);
+    background-color: var(--light-gray);
     border: 1px solid #e9ecef;
     border-radius: 4px;
     padding: 1rem;
@@ -171,13 +215,13 @@ pre.code-block {
 /* Host details page */
 .property-table th {
     width: 30%;
-    background-color: var(--bearcat-gray);
+    background-color: var(--light-gray);
 }
 
 /* Log output formatting */
 .log-output {
-    background-color: #212529;
-    color: var(--bearcat-white);
+    background-color: var(--black);
+    color: var(--light-gray);
     border-radius: 4px;
     padding: 1rem;
     font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -200,7 +244,7 @@ pre.code-block {
 }
 
 .socket-connected {
-    background-color: #28a745;
+    background-color: var(--maroon);
     color: white;
 }
 
@@ -209,9 +253,10 @@ pre.code-block {
     color: white;
 }
 
-/* Footer customization */
-footer.bg-dark {
-    background-color: var(--bearcat-maroon) !important;
+/* Charts */
+#hostTrendsChart .chartjs-render-monitor,
+#osDistributionChart .chartjs-render-monitor {
+    max-height: 300px;
 }
 
 /* Responsive adjustments */
@@ -222,77 +267,5 @@ footer.bg-dark {
     
     .hide-mobile {
         display: none;
-    }
-    
-    .navbar-brand img {
-        height: 30px;
-    }
-}
-/* Add these styles to the end of app/static/css/style.css */
-
-/* Responsive table improvements */
-.table-responsive {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
-
-/* Ensure Actions column has minimum width */
-.table th:last-child, .table td:last-child {
-    min-width: 80px;
-    width: 80px;
-    text-align: center;
-}
-
-/* Make action buttons more visible */
-.btn-sm {
-    padding: 0.25rem 0.5rem;
-}
-
-/* Highlight rows on hover */
-.table-hover tbody tr:hover {
-    background-color: rgba(0, 123, 255, 0.1);
-}
-
-/* Improve system info table display */
-.property-table th {
-    width: 30%;
-    background-color: #f8f9fa;
-}
-
-/* Highlight Foxit license keys */
-.font-monospace.bg-light {
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    background-color: #f8f9fa;
-    border: 1px solid #dee2e6;
-}
-
-/* Copy button styles */
-.btn-copy {
-    vertical-align: middle;
-}
-
-/* Fix table width issues */
-.table {
-    width: 100%;
-    table-layout: auto;
-}
-
-/* Ensure the whole page content is scrollable when needed */
-.container {
-    max-width: 1320px;
-    width: 100%;
-}
-
-@media (max-width: 992px) {
-    /* Adjust card layout on smaller screens */
-    .card {
-        margin-bottom: 1.5rem;
-    }
-    
-    /* Make action columns more compact on mobile */
-    .table th:last-child, .table td:last-child {
-        min-width: 60px;
-        width: 60px;
     }
 }

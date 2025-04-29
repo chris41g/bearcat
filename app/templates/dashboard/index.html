@@ -9,31 +9,29 @@
 {% block content %}
 <h1 class="mb-4"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h1>
 
-# Update the relevant part of app/templates/dashboard/index.html
-
 <!-- Status Cards -->
 <div class="row mb-4">
     <div class="col-md-3">
-        <div class="card bg-primary text-white h-100">
+        <div class="card dashboard-card">
             <div class="card-body">
                 <h5 class="card-title"><i class="fas fa-server me-2"></i>Unique Hosts</h5>
                 <h2 class="display-4" id="totalHosts">{{ stats.total_hosts }}</h2>
-                <p class="small text-light">Count of unique IP addresses</p>
+                <p class="card-text">Count of unique IP addresses</p>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card bg-success text-white h-100">
+        <div class="card dashboard-card">
             <div class="card-body">
                 <h5 class="card-title"><i class="fas fa-check-circle me-2"></i>Unique Online</h5>
                 <h2 class="display-4" id="onlineHosts">{{ stats.online_hosts }}</h2>
                 <p class="card-text" id="onlinePercentage">{{ "%.1f"|format(stats.online_percentage) }}% online</p>
-                <p class="small text-light">Most recent status for each IP</p>
+                <p class="card-text">Most recent status for each IP</p>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card bg-info text-white h-100">
+        <div class="card dashboard-card">
             <div class="card-body">
                 <h5 class="card-title"><i class="fas fa-clock me-2"></i>Scan Sessions</h5>
                 <h2 class="display-4">{{ stats.scan_sessions }}</h2>
@@ -41,17 +39,16 @@
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card bg-warning text-dark h-100">
+        <div class="card dashboard-card">
             <div class="card-body">
                 <h5 class="card-title"><i class="fas fa-key me-2"></i>Foxit Licenses</h5>
                 <h2 class="display-4">{{ stats.foxit_license_count }}</h2>
-                <p class="small text-dark">Unique hosts with licenses</p>
+                <p class="card-text">Unique hosts with licenses</p>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Rest of the dashboard content -->
 <!-- Quick Actions -->
 <div class="row mb-4">
     <div class="col-12">
@@ -59,7 +56,7 @@
             <div class="card-header bg-dark text-white">
                 <h5 class="mb-0"><i class="fas fa-bolt me-2"></i>Quick Actions</h5>
             </div>
-            <div class="card-body">
+            <div class="card-body quick-actions">
                 <div class="row">
                     <div class="col-md-4 mb-2">
                         <a href="{{ url_for('scans.new') }}" class="btn btn-primary w-100">
@@ -237,12 +234,12 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for port in stats.top_ports %}
+                            {% for port_info in stats.top_ports %}
                             <tr>
-                                <td>{{ port.port }}</td>
+                                <td>{{ port_info['port'] }}</td>
                                 <td>
-                                    {% if port.service_name %}
-                                    {{ port.service_name }}
+                                    {% if port_info['service_name'] %}
+                                    {{ port_info['service_name'] }}
                                     {% else %}
                                     <span class="text-muted">unknown</span>
                                     {% endif %}
@@ -250,11 +247,11 @@
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <div class="progress flex-grow-1 me-2" style="height: 8px;">
-                                            <div class="progress-bar" 
+                                            <div class="progress-bar"
                                                  role="progressbar" 
-                                                 style="width: {{ (port.count / stats.top_ports[0].count) * 100 }}%; background-color: #651D32;"></div>
+                                                 style="width: {{ (port_info['count'] / stats.top_ports[0]['count']) * 100 }}%"></div>
                                         </div>
-                                        <span>{{ port.count }}</span>
+                                        <span>{{ port_info['count'] }}</span>
                                     </div>
                                 </td>
                             </tr>

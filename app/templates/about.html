@@ -1,0 +1,53 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>About Sidney</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h4>Network Scanner & Discovery Tool</h4>
+                <p>Sidney is a powerful tool designed to help network administrators discover and catalog devices on their networks. With Sidney, you can perform comprehensive scans of your network infrastructure to identify online hosts, running services, and system information.</p>
+                
+                <h5>Features</h5>
+                <ul>
+                    <li>Network scanning and host discovery</li>
+                    <li>Service and port scanning</li>
+                    <li>Operating system detection</li>
+                    <li>Windows system information gathering</li>
+                    <li>Share enumeration</li>
+                    <li>Data persistence and querying</li>
+                </ul>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-header bg-dark text-white">
+                        <h6 class="mb-0">Version Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Version:</strong> {{ version }}</p>
+                        <p><strong>Database Size:</strong> {{ "%.2f"|format(db_size) }} MB</p>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">
+                        <h6 class="mb-0">System Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Flask Version:</strong> 2.3.3</p>
+                        <p><strong>Database:</strong> SQLite</p>
+                        <p><strong>Scanner:</strong> sidney-scanner.py</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card-footer text-center">
+        <p class="mb-0">For support or questions, please contact your system administrator.</p>
+    </div>
+</div>
+{% endblock %}

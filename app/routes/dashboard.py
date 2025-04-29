@@ -35,7 +35,7 @@ def index():
     )
 
 def get_db_stats():
-    """Get statistics from the database with unique host counts."""
+    """Get statistics from the database."""
     try:
         conn = sqlite3.connect(current_app.config['DATABASE_PATH'])
         conn.row_factory = sqlite3.Row
@@ -43,33 +43,13 @@ def get_db_stats():
         
         stats = {}
         
-        # Count unique total hosts (regardless of status)
-        cursor.execute("""
-            WITH UniqueHosts AS (
-                SELECT ip, MAX(scan_time) as latest_scan_time
-                FROM hosts
-                GROUP BY ip
-            )
-            SELECT COUNT(*) as count 
-            FROM hosts h
-            JOIN UniqueHosts uh ON h.ip = uh.ip AND h.scan_time = uh.latest_scan_time
-        """)
+        # Count total hosts
+        cursor.execute("SELECT COUNT(*) as count FROM hosts")
         result = cursor.fetchone()
         stats['total_hosts'] = result['count'] if result else 0
         
-        # Count unique online hosts
-        cursor.execute("""
-            WITH UniqueOnlineHosts AS (
-                SELECT ip, MAX(scan_time) as latest_scan_time
-                FROM hosts
-                WHERE status = 'online'
-                GROUP BY ip
-            )
-            SELECT COUNT(*) as count 
-            FROM hosts h
-            JOIN UniqueOnlineHosts uoh ON h.ip = uoh.ip AND h.scan_time = uoh.latest_scan_time
-            WHERE h.status = 'online'
-        """)
+        # Count online hosts
+        cursor.execute("SELECT COUNT(*) as count FROM hosts WHERE status = 'online'")
         result = cursor.fetchone()
         stats['online_hosts'] = result['count'] if result else 0
         
@@ -78,25 +58,18 @@ def get_db_stats():
         if stats['total_hosts'] > 0:
             stats['online_percentage'] = (stats['online_hosts'] / stats['total_hosts']) * 100
         
-        # Count hosts by OS (unique hosts only)
+        # Count hosts by OS
         cursor.execute("""
-            WITH UniqueOnlineHosts AS (
-                SELECT ip, MAX(scan_time) as latest_scan_time
-                FROM hosts
-                WHERE status = 'online'
-                GROUP BY ip
-            )
             SELECT os, COUNT(*) as count
-            FROM hosts h
-            JOIN UniqueOnlineHosts uoh ON h.ip = uoh.ip AND h.scan_time = uoh.latest_scan_time
-            WHERE h.status = 'online' AND h.os != ''
-            GROUP BY h.os
+            FROM hosts
+            WHERE status = 'online' AND os != ''
+            GROUP BY os
             ORDER BY count DESC
             LIMIT 5
         """)
         stats['os_distribution'] = cursor.fetchall()
         
-        # Count top open ports (maintain current logic for this)
+        # Count top open ports
         cursor.execute("""
             SELECT port, COUNT(*) as count
             FROM services
@@ -106,18 +79,11 @@ def get_db_stats():
         """)
         stats['top_ports'] = cursor.fetchall()
         
-        # Count hosts with Foxit license keys (unique hosts)
+        # Count hosts with Foxit license keys
         cursor.execute("""
-            WITH UniqueHosts AS (
-                SELECT ip, MAX(scan_time) as latest_scan_time
-                FROM hosts
-                GROUP BY ip
-            )
             SELECT COUNT(*) as count
-            FROM system_info si
-            JOIN hosts h ON si.host_id = h.id
-            JOIN UniqueHosts uh ON h.ip = uh.ip AND h.scan_time = uh.latest_scan_time
-            WHERE si.key = 'foxit_license_key'
+            FROM system_info
+            WHERE key = 'foxit_license_key'
         """)
         result = cursor.fetchone()
         stats['foxit_license_count'] = result['count'] if result else 0
@@ -152,9 +118,7 @@ def get_db_stats():
             'latest_session': None,
             'error': str(e)
         }
-
-# Update the get_chart_data function in app/routes/dashboard.py
-
+        
 def get_chart_data():
     """Get data for dashboard charts with unique host counts."""
     try:
@@ -262,8 +226,20 @@ def get_chart_data():
 def get_stats_api():
     """API endpoint to get fresh dashboard statistics."""
     stats = get_db_stats()
+    
+    # Convert SQLite Row objects to dictionaries for JSON serialization
+    if 'os_distribution' in stats and stats['os_distribution']:
+        stats['os_distribution'] = [dict(row) for row in stats['os_distribution']]
+    
+    if 'top_ports' in stats and stats['top_ports']:
+        stats['top_ports'] = [dict(row) for row in stats['top_ports']]
+    
+    if 'latest_session' in stats and stats['latest_session']:
+        stats['latest_session'] = dict(stats['latest_session']) if stats['latest_session'] else None
+    
     return jsonify(stats)
-
+    
+    
 @dashboard_bp.route('/api/dashboard/charts')
 @login_required
 def get_charts_api():

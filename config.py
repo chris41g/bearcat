@@ -12,22 +12,22 @@ class Config:
     DEBUG = os.environ.get('DEBUG') == 'True'
     
     # Database settings
-    DATABASE_PATH = os.environ.get('DATABASE_PATH') or '/opt/activedisc_web/network_discovery.db'
+    DATABASE_PATH = os.environ.get('DATABASE_PATH') or '/opt/sidney/network_discovery.db'
     SQLALCHEMY_DATABASE_URI = f"sqlite:///{DATABASE_PATH}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Network Discovery settings
     DEFAULT_WORKERS = int(os.environ.get('DEFAULT_WORKERS') or 50)
     DEFAULT_SCAN_TYPE = os.environ.get('DEFAULT_SCAN_TYPE') or 'basic'
-    SCANNER_SCRIPT_PATH = os.environ.get('SCANNER_SCRIPT_PATH') or '/opt/activedisc_web/b-activedisc.py'
+    SCANNER_SCRIPT_PATH = os.environ.get('SCANNER_SCRIPT_PATH') or '/opt/sidney/sidney-scanner.py'
     PYTHON_PATH = os.environ.get('PYTHON_PATH') or 'python3'
     
     # Authentication
     ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME') or 'admin'
-    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD') 
+    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD')
     
     # Logging
-    LOG_PATH = os.environ.get('LOG_PATH') or '/opt/activedisc_web/logs'
+    LOG_PATH = os.environ.get('LOG_PATH') or '/opt/sidney/logs'
     
     # Web interface settings
     ITEMS_PER_PAGE = int(os.environ.get('ITEMS_PER_PAGE') or 25)
