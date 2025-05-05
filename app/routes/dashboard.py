@@ -43,12 +43,12 @@ def get_db_stats():
         
         stats = {}
         
-        # Count total hosts
+        # Count total hosts - now using the hosts table directly
         cursor.execute("SELECT COUNT(*) as count FROM hosts")
         result = cursor.fetchone()
         stats['total_hosts'] = result['count'] if result else 0
         
-        # Count online hosts
+        # Count online hosts - based on current status
         cursor.execute("SELECT COUNT(*) as count FROM hosts WHERE status = 'online'")
         result = cursor.fetchone()
         stats['online_hosts'] = result['count'] if result else 0
@@ -163,12 +163,6 @@ def get_chart_data():
         
         # Get OS distribution for pie chart (unique hosts only)
         cursor.execute("""
-            WITH UniqueOnlineHosts AS (
-                SELECT ip, MAX(scan_time) as latest_scan_time
-                FROM hosts
-                WHERE status = 'online'
-                GROUP BY ip
-            )
             SELECT 
                 CASE
                     WHEN os LIKE '%Windows%' THEN 'Windows'
@@ -177,9 +171,8 @@ def get_chart_data():
                     ELSE 'Other'
                 END AS os_group,
                 COUNT(*) as count
-            FROM hosts h
-            JOIN UniqueOnlineHosts uoh ON h.ip = uoh.ip AND h.scan_time = uoh.latest_scan_time
-            WHERE h.status = 'online' AND h.os != ''
+            FROM hosts
+            WHERE status = 'online' AND os != ''
             GROUP BY os_group
             ORDER BY count DESC
         """)

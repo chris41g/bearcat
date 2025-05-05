@@ -4,9 +4,18 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="fas fa-laptop me-2"></i>Host Details</h1>
     <div>
+        {% if job %}
+        <a href="{{ url_for('scans.results', job_id=job.id) }}" class="btn btn-secondary me-2">
+            <i class="fas fa-arrow-left me-2"></i>Back to Results
+        </a>
+        <a href="{{ url_for('scans.index') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-list me-2"></i>All Scans
+        </a>
+        {% else %}
         <a href="{{ url_for('queries.index') }}" class="btn btn-secondary">
             <i class="fas fa-arrow-left me-2"></i>Back to Queries
         </a>
+        {% endif %}
     </div>
 </div>
 
@@ -42,9 +51,19 @@
                         </td>
                     </tr>
                     <tr>
-                        <th>Scan Time</th>
+                        <th>First Seen</th>
+                        <td>{{ host.first_seen }}</td>
+                    </tr>
+                    <tr>
+                        <th>Last Seen</th>
+                        <td>{{ host.last_seen }}</td>
+                    </tr>
+                    {% if host.scan_time %}
+                    <tr>
+                        <th>Last Scan Time</th>
                         <td>{{ host.scan_time }}</td>
                     </tr>
+                    {% endif %}
                 </table>
             </div>
         </div>
@@ -82,6 +101,53 @@
             </div>
         </div>
     </div>
+    
+    <!-- Scan History -->
+    {% if host.scan_history %}
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="fas fa-history me-2"></i>Scan History</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Scan Time</th>
+                                <th>Status</th>
+                                <th>Session</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for scan in host.scan_history %}
+                            <tr>
+                                <td>{{ scan.scan_time }}</td>
+                                <td>
+                                    {% if scan.status == 'online' %}
+                                    <span class="badge bg-success">Online</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">Offline</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if scan.session_id %}
+                                    <a href="{{ url_for('scans.view', job_id=scan.session_id) }}">
+                                        #{{ scan.session_id }}
+                                    </a>
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     
     <!-- Shares -->
     <div class="col-md-6 mb-4">
@@ -165,13 +231,13 @@
     </div>
     
     <!-- Software -->
+    {% if host.installed_software %}
     <div class="col-12 mb-4">
         <div class="card">
             <div class="card-header bg-secondary text-white">
                 <h5 class="mb-0"><i class="fas fa-cubes me-2"></i>Installed Software</h5>
             </div>
             <div class="card-body">
-                {% if host.installed_software %}
                 <div class="table-responsive">
                     <table class="table table-striped">
                         <thead>
@@ -192,21 +258,19 @@
                         </tbody>
                     </table>
                 </div>
-                {% else %}
-                <p class="text-center text-muted py-3">No installed software detected</p>
-                {% endif %}
             </div>
         </div>
     </div>
+    {% endif %}
     
     <!-- Running Services -->
+    {% if host.running_services %}
     <div class="col-12 mb-4">
         <div class="card">
             <div class="card-header bg-dark text-white">
                 <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Running Services</h5>
             </div>
             <div class="card-body">
-                {% if host.running_services %}
                 <div class="table-responsive">
                     <table class="table table-striped">
                         <thead>
@@ -233,12 +297,10 @@
                         </tbody>
                     </table>
                 </div>
-                {% else %}
-                <p class="text-center text-muted py-3">No running services information available</p>
-                {% endif %}
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 {% endblock %}
 
