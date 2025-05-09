@@ -1,5 +1,6 @@
 # Ignore all .log files
 *.log
+logs/
 
 # Ignore node_modules folder
 node_modules/
@@ -25,4 +26,5 @@ program_files_output.txt
 print_env.py
 check_foxit_licenses.py
 net*.db
-
+migrate_sidney_db.py
+net*.db*
