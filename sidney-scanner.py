@@ -3,6 +3,7 @@
 Network Discovery Tool
 
 A tool for scanning networks, identifying online hosts, and gathering system information.
+Updated to work with the new IP-centric database schema.
 """
 
 import argparse
@@ -21,75 +22,69 @@ import sqlite3
 import os
 from datetime import datetime
 
-# Add these constants at the beginning of your script, after your imports
-# but before any function definitions:
-
-# SQL to create the tables
+# SQL to create the tables according to the new schema
 CREATE_TABLES_SQL = """
--- Main hosts table
 CREATE TABLE IF NOT EXISTS hosts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ip TEXT NOT NULL,
+    ip TEXT PRIMARY KEY,
     status TEXT NOT NULL,
     hostname TEXT,
     mac_address TEXT,
     os TEXT,
-    scan_time TIMESTAMP NOT NULL,
-    UNIQUE(ip, scan_time)
+    first_seen TIMESTAMP NOT NULL,
+    last_seen TIMESTAMP NOT NULL
 );
 
--- Services table (ports/services found on hosts)
 CREATE TABLE IF NOT EXISTS services (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    host_id INTEGER NOT NULL,
+    ip TEXT NOT NULL,
     port INTEGER NOT NULL,
     service_name TEXT,
-    FOREIGN KEY (host_id) REFERENCES hosts (id),
-    UNIQUE(host_id, port)
+    last_updated TIMESTAMP NOT NULL,
+    FOREIGN KEY (ip) REFERENCES hosts (ip),
+    UNIQUE(ip, port)
 );
 
--- Shares table (SMB shares found on hosts)
 CREATE TABLE IF NOT EXISTS shares (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    host_id INTEGER NOT NULL,
+    ip TEXT NOT NULL,
     share_name TEXT NOT NULL,
-    FOREIGN KEY (host_id) REFERENCES hosts (id),
-    UNIQUE(host_id, share_name)
+    last_updated TIMESTAMP NOT NULL,
+    FOREIGN KEY (ip) REFERENCES hosts (ip),
+    UNIQUE(ip, share_name)
 );
 
--- System info table (detailed Windows system information)
 CREATE TABLE IF NOT EXISTS system_info (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    host_id INTEGER NOT NULL,
+    ip TEXT NOT NULL,
     key TEXT NOT NULL,
     value TEXT,
-    FOREIGN KEY (host_id) REFERENCES hosts (id),
-    UNIQUE(host_id, key)
+    last_updated TIMESTAMP NOT NULL,
+    FOREIGN KEY (ip) REFERENCES hosts (ip),
+    UNIQUE(ip, key)
 );
 
--- Installed software table
 CREATE TABLE IF NOT EXISTS installed_software (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    host_id INTEGER NOT NULL,
+    ip TEXT NOT NULL,
     name TEXT NOT NULL,
     version TEXT,
     path TEXT,
-    FOREIGN KEY (host_id) REFERENCES hosts (id),
-    UNIQUE(host_id, name, path)
+    last_updated TIMESTAMP NOT NULL,
+    FOREIGN KEY (ip) REFERENCES hosts (ip),
+    UNIQUE(ip, name, path)
 );
 
--- Running services table
 CREATE TABLE IF NOT EXISTS running_services (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    host_id INTEGER NOT NULL,
+    ip TEXT NOT NULL,
     name TEXT NOT NULL,
     display_name TEXT,
     status TEXT,
-    FOREIGN KEY (host_id) REFERENCES hosts (id),
-    UNIQUE(host_id, name)
+    last_updated TIMESTAMP NOT NULL,
+    FOREIGN KEY (ip) REFERENCES hosts (ip),
+    UNIQUE(ip, name)
 );
 
--- Scan sessions table to group scans
 CREATE TABLE IF NOT EXISTS scan_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     start_time TIMESTAMP NOT NULL,
@@ -99,20 +94,33 @@ CREATE TABLE IF NOT EXISTS scan_sessions (
     hosts_online INTEGER,
     scan_type TEXT
 );
+
+CREATE TABLE IF NOT EXISTS scan_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ip TEXT NOT NULL,
+    status TEXT NOT NULL,
+    scan_time TIMESTAMP NOT NULL,
+    session_id INTEGER,
+    FOREIGN KEY (ip) REFERENCES hosts (ip),
+    FOREIGN KEY (session_id) REFERENCES scan_sessions (id)
+);
 """
 
-# Sample queries for common operations
+# Sample queries updated for the new schema
 SAMPLE_QUERIES = {
     # Get all online hosts
     "online_hosts": """
-        SELECT * FROM hosts WHERE status = 'online' ORDER BY ip
+        SELECT ip, hostname, os, mac_address, last_seen 
+        FROM hosts 
+        WHERE status = 'online' 
+        ORDER BY ip
     """,
     
     # Get hosts with specific open port
     "hosts_with_port": """
         SELECT h.ip, h.hostname, h.os, s.port, s.service_name
         FROM hosts h
-        JOIN services s ON h.id = s.host_id
+        JOIN services s ON h.ip = s.ip
         WHERE s.port = ? AND h.status = 'online'
         ORDER BY h.ip
     """,
@@ -121,7 +129,7 @@ SAMPLE_QUERIES = {
     "hosts_with_software": """
         SELECT h.ip, h.hostname, h.os, i.name, i.version
         FROM hosts h
-        JOIN installed_software i ON h.id = i.host_id
+        JOIN installed_software i ON h.ip = i.ip
         WHERE i.name LIKE ? AND h.status = 'online'
         ORDER BY h.ip
     """,
@@ -130,7 +138,7 @@ SAMPLE_QUERIES = {
     "hosts_with_foxit": """
         SELECT h.ip, h.hostname, s.value AS foxit_license_key
         FROM hosts h
-        JOIN system_info s ON h.id = s.host_id
+        JOIN system_info s ON h.ip = s.ip
         WHERE s.key = 'foxit_license_key' AND h.status = 'online'
         ORDER BY h.ip
     """,
@@ -207,40 +215,92 @@ def end_scan_session(cursor, session_id, online_hosts):
     )
 
 def insert_host_to_db(conn, cursor, host_info, session_id=None):
-    """Insert host scan results into the database."""
+    """Insert host scan results into the database using the new schema."""
+    current_time = datetime.now().isoformat()
     try:
-        # Insert basic host info
-        cursor.execute(
-            "INSERT INTO hosts (ip, status, hostname, mac_address, os, scan_time) VALUES (?, ?, ?, ?, ?, ?)",
-            (
-                host_info['ip'],
-                host_info['status'],
-                host_info['hostname'],
-                host_info['mac_address'],
-                host_info['os'],
-                host_info['scan_time']
+        # Check if host exists in hosts table
+        cursor.execute("SELECT * FROM hosts WHERE ip = ?", (host_info['ip'],))
+        existing_host = cursor.fetchone()
+        
+        if existing_host:
+            # Update existing host
+            cursor.execute(
+                "UPDATE hosts SET status = ?, hostname = ?, mac_address = ?, os = ?, last_seen = ? WHERE ip = ?",
+                (
+                    host_info['status'],
+                    host_info['hostname'],
+                    host_info['mac_address'],
+                    host_info['os'],
+                    current_time,
+                    host_info['ip']
+                )
             )
-        )
-        host_id = cursor.lastrowid
+        else:
+            # Insert new host
+            cursor.execute(
+                "INSERT INTO hosts (ip, status, hostname, mac_address, os, first_seen, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    host_info['ip'],
+                    host_info['status'],
+                    host_info['hostname'],
+                    host_info['mac_address'],
+                    host_info['os'],
+                    current_time,
+                    current_time
+                )
+            )
+        
+        # Add entry in scan_history
+        if session_id:
+            cursor.execute(
+                "INSERT INTO scan_history (ip, status, scan_time, session_id) VALUES (?, ?, ?, ?)",
+                (host_info['ip'], host_info['status'], current_time, session_id)
+            )
         
         # Skip the rest if host is offline
         if host_info['status'] != 'online':
             conn.commit()
-            return host_id
+            return host_info['ip']
         
         # Insert services (ports)
         for port, service in host_info['services'].items():
+            # Check if service exists
             cursor.execute(
-                "INSERT INTO services (host_id, port, service_name) VALUES (?, ?, ?)",
-                (host_id, port, service)
+                "SELECT * FROM services WHERE ip = ? AND port = ?",
+                (host_info['ip'], port)
             )
+            if cursor.fetchone():
+                # Update existing service
+                cursor.execute(
+                    "UPDATE services SET service_name = ?, last_updated = ? WHERE ip = ? AND port = ?",
+                    (service, current_time, host_info['ip'], port)
+                )
+            else:
+                # Insert new service
+                cursor.execute(
+                    "INSERT INTO services (ip, port, service_name, last_updated) VALUES (?, ?, ?, ?)",
+                    (host_info['ip'], port, service, current_time)
+                )
         
         # Insert shares
         for share in host_info.get('shares', []):
+            # Check if share exists
             cursor.execute(
-                "INSERT INTO shares (host_id, share_name) VALUES (?, ?)",
-                (host_id, share)
+                "SELECT * FROM shares WHERE ip = ? AND share_name = ?",
+                (host_info['ip'], share)
             )
+            if cursor.fetchone():
+                # Update existing share
+                cursor.execute(
+                    "UPDATE shares SET last_updated = ? WHERE ip = ? AND share_name = ?",
+                    (current_time, host_info['ip'], share)
+                )
+            else:
+                # Insert new share
+                cursor.execute(
+                    "INSERT INTO shares (ip, share_name, last_updated) VALUES (?, ?, ?)",
+                    (host_info['ip'], share, current_time)
+                )
         
         # Insert Windows-specific information if available
         if host_info.get('windows_info'):
@@ -249,10 +309,23 @@ def insert_host_to_db(conn, cursor, host_info, session_id=None):
             # System info
             if win_info.get('system_info'):
                 for key, value in win_info['system_info'].items():
+                    # Check if system info exists
                     cursor.execute(
-                        "INSERT INTO system_info (host_id, key, value) VALUES (?, ?, ?)",
-                        (host_id, key, value)
+                        "SELECT * FROM system_info WHERE ip = ? AND key = ?",
+                        (host_info['ip'], key)
                     )
+                    if cursor.fetchone():
+                        # Update existing system info
+                        cursor.execute(
+                            "UPDATE system_info SET value = ?, last_updated = ? WHERE ip = ? AND key = ?",
+                            (value, current_time, host_info['ip'], key)
+                        )
+                    else:
+                        # Insert new system info
+                        cursor.execute(
+                            "INSERT INTO system_info (ip, key, value, last_updated) VALUES (?, ?, ?, ?)",
+                            (host_info['ip'], key, value, current_time)
+                        )
                     
                     # Debug output for Foxit license keys
                     if key == 'foxit_license_key':
@@ -261,37 +334,62 @@ def insert_host_to_db(conn, cursor, host_info, session_id=None):
             # Installed software
             if win_info.get('installed_software'):
                 for software in win_info['installed_software']:
+                    name = software.get('name', 'Unknown')
+                    version = software.get('version', '')
+                    path = software.get('path', '')
+                    
+                    # Check if software exists
                     cursor.execute(
-                        "INSERT INTO installed_software (host_id, name, version, path) VALUES (?, ?, ?, ?)",
-                        (
-                            host_id,
-                            software.get('name', 'Unknown'),
-                            software.get('version', ''),
-                            software.get('path', '')
-                        )
+                        "SELECT * FROM installed_software WHERE ip = ? AND name = ? AND path = ?",
+                        (host_info['ip'], name, path)
                     )
+                    if cursor.fetchone():
+                        # Update existing software
+                        cursor.execute(
+                            "UPDATE installed_software SET version = ?, last_updated = ? WHERE ip = ? AND name = ? AND path = ?",
+                            (version, current_time, host_info['ip'], name, path)
+                        )
+                    else:
+                        # Insert new software
+                        cursor.execute(
+                            "INSERT INTO installed_software (ip, name, version, path, last_updated) VALUES (?, ?, ?, ?, ?)",
+                            (host_info['ip'], name, version, path, current_time)
+                        )
             
             # Running services
             if win_info.get('running_services'):
                 for service in win_info['running_services']:
+                    name = service.get('name', 'Unknown')
+                    display_name = service.get('display_name', '')
+                    status = service.get('status', '')
+                    
+                    # Check if running service exists
                     cursor.execute(
-                        "INSERT INTO running_services (host_id, name, display_name, status) VALUES (?, ?, ?, ?)",
-                        (
-                            host_id,
-                            service.get('name', 'Unknown'),
-                            service.get('display_name', ''),
-                            service.get('status', '')
-                        )
+                        "SELECT * FROM running_services WHERE ip = ? AND name = ?",
+                        (host_info['ip'], name)
                     )
+                    if cursor.fetchone():
+                        # Update existing running service
+                        cursor.execute(
+                            "UPDATE running_services SET display_name = ?, status = ?, last_updated = ? WHERE ip = ? AND name = ?",
+                            (display_name, status, current_time, host_info['ip'], name)
+                        )
+                    else:
+                        # Insert new running service
+                        cursor.execute(
+                            "INSERT INTO running_services (ip, name, display_name, status, last_updated) VALUES (?, ?, ?, ?, ?)",
+                            (host_info['ip'], name, display_name, status, current_time)
+                        )
         
         conn.commit()
-        return host_id
+        return host_info['ip']
         
     except sqlite3.Error as e:
         # Log the error and roll back
         print(f"Database error: {str(e)}")
         conn.rollback()
         return None
+
 def query_database(conn, query_name, params=()):
     """
     Execute a predefined query against the database.
@@ -328,27 +426,27 @@ def export_to_csv(conn, output_file):
         
         # Get all online hosts
         cursor.execute("""
-            SELECT h.id, h.ip, h.status, h.hostname, h.mac_address, h.os
-            FROM hosts h
-            WHERE h.status = 'online'
-            ORDER BY h.ip
+            SELECT ip, status, hostname, mac_address, os
+            FROM hosts
+            WHERE status = 'online'
+            ORDER BY ip
         """)
         
         for host in cursor.fetchall():
-            host_id = host['id']
+            ip = host['ip']
             
             # Get services
-            cursor.execute("SELECT port, service_name FROM services WHERE host_id = ?", (host_id,))
+            cursor.execute("SELECT port, service_name FROM services WHERE ip = ?", (ip,))
             services = cursor.fetchall()
             services_str = "|".join([f"{s['port']}:{s['service_name']}" for s in services])
             
             # Get shares
-            cursor.execute("SELECT share_name FROM shares WHERE host_id = ?", (host_id,))
+            cursor.execute("SELECT share_name FROM shares WHERE ip = ?", (ip,))
             shares = cursor.fetchall()
             shares_str = "|".join([s['share_name'] for s in shares])
             
             # Get installed software
-            cursor.execute("SELECT name FROM installed_software WHERE host_id = ?", (host_id,))
+            cursor.execute("SELECT name FROM installed_software WHERE ip = ?", (ip,))
             software = cursor.fetchall()
             software_str = "|".join([s['name'] for s in software])
             
@@ -356,16 +454,16 @@ def export_to_csv(conn, output_file):
             cursor.execute("""
                 SELECT COALESCE(display_name, name) as service_name 
                 FROM running_services 
-                WHERE host_id = ?
-            """, (host_id,))
+                WHERE ip = ?
+            """, (ip,))
             running_services = cursor.fetchall()
             services_str = "|".join([s['service_name'] for s in running_services])
             
             # Get Foxit license key
             cursor.execute("""
                 SELECT value FROM system_info 
-                WHERE host_id = ? AND key = 'foxit_license_key'
-            """, (host_id,))
+                WHERE ip = ? AND key = 'foxit_license_key'
+            """, (ip,))
             foxit_key = cursor.fetchone()
             foxit_key_str = foxit_key['value'] if foxit_key else ""
             
@@ -407,9 +505,11 @@ def get_db_stats(conn):
     
     # Count top open ports
     cursor.execute("""
-        SELECT port, COUNT(*) as count
-        FROM services
-        GROUP BY port
+        SELECT s.port, s.service_name, COUNT(*) as count
+        FROM services s
+        JOIN hosts h ON s.ip = h.ip
+        WHERE h.status = 'online'
+        GROUP BY s.port, s.service_name
         ORDER BY count DESC
         LIMIT 10
     """)
@@ -424,6 +524,319 @@ def get_db_stats(conn):
     stats['foxit_license_count'] = cursor.fetchone()['count']
     
     return stats
+
+# ... [rest of the original code - scanning functions, etc.] ...
+
+def scan_host(ip, full_scan=False, username=None, password=None):
+    """
+    Scan a host for information.
+    
+    Args:
+        ip (str): The IP address
+        full_scan (bool): Whether to do a full scan (including OS detection)
+        username (str): Username for authentication (Windows scanning)
+        password (str): Password for authentication (Windows scanning)
+        
+    Returns:
+        dict: Host information
+    """
+    result = {
+        'ip': str(ip),
+        'status': 'offline',
+        'hostname': '',
+        'mac_address': '',
+        'os': '',
+        'services': {},
+        'shares': [],
+        'windows_info': {},
+        'scan_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    
+    if ping(ip):
+        result['status'] = 'online'
+        
+        # Try to get MAC address
+        print(f"\n{Colors.BOLD}Scanning host: {ip}{Colors.ENDC}")
+        result['mac_address'] = get_mac_address(ip)
+        
+        # Try to get hostname
+        result['hostname'] = get_improved_hostname(ip, username, password)
+        
+        if full_scan:
+            result['os'] = os_detection(ip)
+            result['services'] = scan_services(ip)
+            
+            # If it appears to be a Windows machine based on ports or OS detection
+            is_windows = False
+            
+            # Check port 445 (SMB) is open - strong indicator of Windows
+            if 445 in result['services'] or 139 in result['services']:
+                is_windows = True
+            
+            # Check OS detection results
+            if result['os'] and ('windows' in result['os'].lower() or 'microsoft' in result['os'].lower()):
+                is_windows = True
+            
+            # If credentials provided or it looks like Windows, try Windows-specific scans
+            if is_windows or (username and password):
+                # Try to enumerate shares
+                result['shares'] = enumerate_windows_shares(ip, username, password)
+                
+                # If credentials provided, attempt to scan Windows system
+                if username and password:
+                    if platform.system() == "Windows":
+                        result['windows_info'] = scan_windows_system(ip, username, password)
+                    else:
+                        result['windows_info'] = scan_windows_system_linux(ip, username, password)
+    
+    return result
+
+def main():
+    parser = argparse.ArgumentParser(description="Network Discovery Tool")
+    target_group = parser.add_mutually_exclusive_group(required=True)
+    target_group.add_argument('-r', '--range', help='IP range (e.g., 192.168.1.1-192.168.1.254)')
+    target_group.add_argument('-s', '--subnet', help='Subnet in CIDR notation (e.g., 192.168.1.0/24)')
+    target_group.add_argument('-t', '--target', help='Single IP target')
+    target_group.add_argument('-l', '--local', action='store_true', help='Scan local networks')
+    target_group.add_argument('-q', '--query', choices=['online_hosts', 'hosts_with_port', 'hosts_with_software', 'hosts_with_foxit', 'scan_sessions'], help='Query the database without scanning')
+    
+    parser.add_argument('-f', '--full', action='store_true', help='Perform full scan (OS detection, service discovery)')
+    parser.add_argument('-w', '--workers', type=int, default=50, help='Number of parallel workers (default: 50)')
+    parser.add_argument('-o', '--output', help='Export results to CSV file')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Show offline hosts')
+    parser.add_argument('-u', '--username', help='Username for Windows authentication')
+    parser.add_argument('-p', '--password', help='Password for Windows authentication')
+    parser.add_argument('--ask-password', action='store_true', help='Prompt for password instead of using command line argument')
+    parser.add_argument('--find-foxit-license', action='store_true', help='Search for Foxit PDF license key')
+    parser.add_argument('--db-path', default='network_discovery.db', help='Path to SQLite database file (default: network_discovery.db)')
+    parser.add_argument('--stats', action='store_true', help='Show database statistics')
+    parser.add_argument('--param', help='Parameter for database query (used with --query)')
+    
+    args = parser.parse_args()
+    
+    # Connect to the database
+    conn, cursor = init_database(args.db_path)
+    
+    # Handle database-only operations
+    if args.query:
+        params = (args.param,) if args.param else ()
+        results = query_database(conn, args.query, params)
+        
+        if not results:
+            print(f"No results found for query: {args.query}")
+        else:
+            print(f"\nResults for query: {args.query}")
+            print("=" * 80)
+            
+            # Print column names
+            columns = list(results[0].keys())
+            print(" | ".join(columns))
+            print("-" * 80)
+            
+            # Print rows
+            for row in results:
+                values = [str(row[col]) for col in columns]
+                print(" | ".join(values))
+            
+            print(f"\nTotal results: {len(results)}")
+        
+        # Export to CSV if requested
+        if args.output:
+            export_to_csv(conn, args.output)
+        
+        conn.close()
+        return
+    
+    # Show database statistics if requested
+    if args.stats:
+        stats = get_db_stats(conn)
+        
+        print("\nDatabase Statistics")
+        print("=" * 80)
+        print(f"Total hosts: {stats['total_hosts']}")
+        print(f"Online hosts: {stats['online_hosts']} ({stats['online_hosts']/stats['total_hosts']*100:.1f}% if stats['total_hosts'] > 0 else 0.0%)")
+        
+        print("\nOS Distribution:")
+        for os_info in stats['os_distribution']:
+            print(f"  {os_info['os']}: {os_info['count']}")
+        
+        print("\nTop 10 Open Ports:")
+        for port_info in stats['top_ports']:
+            print(f"  Port {port_info['port']}: {port_info['count']} hosts")
+        
+        print(f"\nHosts with Foxit license keys: {stats['foxit_license_count']}")
+        
+        # Export to CSV if requested
+        if args.output:
+            export_to_csv(conn, args.output)
+        
+        conn.close()
+        return
+    
+    # Handle password input securely
+    password = None
+    if args.ask_password:
+        import getpass
+        if args.username:
+            password = getpass.getpass(f"Enter password for {args.username}: ")
+        else:
+            password = getpass.getpass("Enter password: ")
+    else:
+        password = args.password
+    
+    # Check for missing dependencies
+    check_dependencies()
+    
+    targets = []
+    target_description = ""
+    
+    # Generate target list based on input method
+    if args.target:
+        try:
+            ipaddress.ip_address(args.target)
+            targets.append(args.target)
+            target_description = f"IP: {args.target}"
+        except ValueError:
+            print(f"Error: Invalid IP address: {args.target}")
+            sys.exit(1)
+    
+    elif args.range:
+        try:
+            start, end = args.range.split('-')
+            start_ip = ipaddress.ip_address(start)
+            end_ip = ipaddress.ip_address(end)
+            
+            if start_ip.version != end_ip.version:
+                print("Error: IP range must be of the same version (IPv4 or IPv6)")
+                sys.exit(1)
+            
+            # Convert to integers for easier iteration
+            start_int = int(start_ip)
+            end_int = int(end_ip)
+            
+            if start_int > end_int:
+                print("Error: Start IP must be less than or equal to end IP")
+                sys.exit(1)
+            
+            for ip_int in range(start_int, end_int + 1):
+                targets.append(str(ipaddress.ip_address(ip_int)))
+            
+            target_description = f"Range: {start}-{end}"
+            
+        except ValueError as e:
+            print(f"Error: Invalid IP range: {e}")
+            sys.exit(1)
+    
+    elif args.subnet:
+        try:
+            network = ipaddress.ip_network(args.subnet, strict=False)
+            targets = [str(ip) for ip in network.hosts()]
+            target_description = f"Subnet: {args.subnet}"
+        except ValueError as e:
+            print(f"Error: Invalid subnet: {e}")
+            sys.exit(1)
+    
+    elif args.local:
+        local_networks = get_local_networks()
+        if not local_networks:
+            print("Error: Could not determine local networks. Please install netifaces or specify targets manually.")
+            sys.exit(1)
+        
+        print(f"Detected local networks: {', '.join(local_networks)}")
+        target_description = f"Local Networks: {', '.join(local_networks)}"
+        
+        for net_cidr in local_networks:
+            try:
+                network = ipaddress.ip_network(net_cidr, strict=False)
+                targets.extend([str(ip) for ip in network.hosts()])
+            except ValueError as e:
+                print(f"Error with network {net_cidr}: {e}")
+    
+    # Remove duplicates
+    targets = list(set(targets))
+    
+    if not targets:
+        print("Error: No valid targets specified")
+        sys.exit(1)
+    
+    print(f"\nStarting scan of {len(targets)} hosts at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"{'Full scan' if args.full else 'Basic scan'} with {args.workers} parallel workers")
+    print(f"Storing results in database: {args.db_path}\n")
+    
+    # Start a new scan session in the database
+    scan_type = "Full" if args.full else "Basic"
+    session_id = start_scan_session(cursor, target_description, len(targets), scan_type)
+    conn.commit()
+    
+    start_time = time.time()
+    
+    # Initialize output file if CSV export is requested
+    output_file = None
+    if args.output:
+        print(f"Results will also be exported to CSV: {args.output} after scan completion")
+    
+    # Track statistics
+    online_count = 0
+    
+    # Use ThreadPoolExecutor for parallel scanning
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as executor:
+        future_to_ip = {executor.submit(scan_host, ip, args.full, args.username, password): ip for ip in targets}
+        
+        # Show progress indicator
+        total = len(targets)
+        completed = 0
+        
+        for future in concurrent.futures.as_completed(future_to_ip):
+            ip = future_to_ip[future]
+            try:
+                host_info = future.result()
+                
+                # Insert into database
+                insert_host_to_db(conn, cursor, host_info, session_id)
+                
+                if host_info['status'] == 'online':
+                    online_count += 1
+                    print(format_scan_result(host_info))
+                elif args.verbose:
+                    print(format_scan_result(host_info, args.verbose))
+                
+            except Exception as e:
+                print(f"{ip} - Error: {e}")
+            
+            completed += 1
+            if completed % 10 == 0 or completed == total:
+                progress = (completed / total) * 100
+                elapsed = time.time() - start_time
+                rate = completed / elapsed if elapsed > 0 else 0
+                remaining = (total - completed) / rate if rate > 0 else 0
+                
+                sys.stdout.write(f"\rProgress: {completed}/{total} ({progress:.1f}%) | "
+                               f"Online: {online_count} | "
+                               f"Elapsed: {elapsed:.1f}s | "
+                               f"Remaining: {remaining:.1f}s")
+                sys.stdout.flush()
+    
+    # Update scan session with results
+    end_scan_session(cursor, session_id, online_count)
+    conn.commit()
+    
+    # Export to CSV if requested
+    if args.output:
+        export_to_csv(conn, args.output)
+        
+# Close the database connection
+    conn.close()
+    
+    # Final stats
+    duration = time.time() - start_time
+    
+    print(f"\n\nScan completed in {duration:.2f} seconds")
+    print(f"Hosts scanned: {len(targets)}")
+    print(f"Hosts online: {online_count} ({(online_count/len(targets))*100:.1f}%)")
+    print(f"Results stored in database: {args.db_path}")
+    print(f"To query results: {sys.argv[0]} --query online_hosts --db-path {args.db_path}")
+
+# ... Keeping the original supporting functions but updating as needed ...
 
 try:
     import nmap
@@ -479,6 +892,7 @@ def is_admin():
             return False
     else:
         return os.geteuid() == 0
+
 def ping(ip, timeout=1):
     """
     Ping an IP address to check if it's online.
@@ -716,6 +1130,148 @@ def scan_services(ip):
     
     return services
 
+def enumerate_windows_shares(ip, username=None, password=None):
+    """
+    Enumerate available shares on a Windows machine.
+    
+    Args:
+        ip (str): The IP address
+        username (str): Username for authentication
+        password (str): Password for authentication
+        
+    Returns:
+        list: List of available shares
+    """
+    shares = []
+    
+    # If authentication credentials provided, try direct listing first
+    if username and password:
+        # Create a credentials file for safer auth
+        fd, creds_file = tempfile.mkstemp(prefix="smb_auth_")
+        try:
+            with os.fdopen(fd, 'w') as f:
+                # Parse domain if present
+                if '\\' in username:
+                    domain, user = username.split('\\')
+                    f.write(f"username={user}\n")
+                    f.write(f"password={password}\n")
+                    f.write(f"domain={domain}\n")
+                else:
+                    f.write(f"username={username}\n")
+                    f.write(f"password={password}\n")
+            
+            # Use credentials file for authentication
+            cmd = f"smbclient -L //{ip} -A {creds_file}"
+            try:
+                print(f"{Colors.BLUE}Trying to list shares with credentials file{Colors.ENDC}")
+                output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, universal_newlines=True)
+                
+                # Parse the output to extract shares
+                current_section = None
+                for line in output.splitlines():
+                    line = line.strip()
+                    
+                    # Look for the Sharename section header
+                    if "Sharename" in line and "Type" in line and "Comment" in line:
+                        current_section = "shares"
+                        continue
+                    
+                    # Parse shares section
+                    if current_section == "shares" and line and not line.startswith("-"):
+                        parts = line.split()
+                        if len(parts) >= 2 and not parts[0] in ["Sharename", "---------"]:
+                            shares.append(parts[0])
+                
+                print(f"{Colors.GREEN}Successfully enumerated {len(shares)} shares{Colors.ENDC}")
+                
+            except subprocess.CalledProcessError as e:
+                print(f"{Colors.RED}Error listing shares: {e.output.strip()}{Colors.ENDC}")
+                
+                # Try another method with direct username/password
+                try:
+                    cmd = f"smbclient -L //{ip} -U '{username}%{password}'"
+                    output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, universal_newlines=True)
+                    
+                    # Parse the output to extract shares
+                    current_section = None
+                    for line in output.splitlines():
+                        line = line.strip()
+                        
+                        # Look for the Sharename section header
+                        if "Sharename" in line and "Type" in line and "Comment" in line:
+                            current_section = "shares"
+                            continue
+                        
+                        # Parse shares section
+                        if current_section == "shares" and line and not line.startswith("-"):
+                            parts = line.split()
+                            if len(parts) >= 2 and not parts[0] in ["Sharename", "---------"]:
+                                shares.append(parts[0])
+                    
+                    print(f"{Colors.GREEN}Successfully enumerated {len(shares)} shares with direct auth{Colors.ENDC}")
+                    
+                except subprocess.CalledProcessError as e2:
+                    print(f"{Colors.RED}Error with direct auth: {e2.output.strip()}{Colors.ENDC}")
+        
+        finally:
+            # Clean up credentials file
+            try:
+                os.remove(creds_file)
+            except:
+                pass
+    
+    # If no shares found or no credentials provided, try anonymous listing
+    if not shares:
+        try:
+            cmd = f"smbclient -L //{ip} -N"
+            try:
+                print(f"{Colors.BLUE}Trying anonymous share listing{Colors.ENDC}")
+                output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, universal_newlines=True)
+                
+                # Parse the output for share names
+                current_section = None
+                for line in output.splitlines():
+                    line = line.strip()
+                    
+                    # Look for the Sharename section header
+                    if "Sharename" in line and "Type" in line and "Comment" in line:
+                        current_section = "shares"
+                        continue
+                    
+                    # Parse shares section
+                    if current_section == "shares" and line and not line.startswith("-"):
+                        parts = line.split()
+                        if len(parts) >= 2 and not parts[0] in ["Sharename", "---------"]:
+                            shares.append(parts[0])
+                            
+                print(f"{Colors.GREEN}Successfully enumerated {len(shares)} shares anonymously{Colors.ENDC}")
+                
+            except subprocess.CalledProcessError as e:
+                print(f"{Colors.RED}Error with anonymous listing: {e.output.strip()}{Colors.ENDC}")
+                
+                # Try nmblookup as a fallback
+                try:
+                    cmd = f"nmblookup -A {ip}"
+                    output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, universal_newlines=True)
+                    
+                    # Just returning the NetBIOS name here
+                    for line in output.splitlines():
+                        if "<00>" in line and not "<GROUP>" in line:
+                            netbios_name = line.split()[0]
+                            shares.append("NetBIOS Name: " + netbios_name)
+                            print(f"{Colors.GREEN}Found NetBIOS name: {netbios_name}{Colors.ENDC}")
+                except:
+                    pass
+        except Exception as e:
+            print(f"{Colors.RED}General error in share enumeration: {str(e)}{Colors.ENDC}")
+    
+    # If no shares found but we know host is up, add default administrative shares
+    if not shares and ping(ip):
+        shares = ["C$", "ADMIN$", "IPC$"]
+        print(f"{Colors.YELLOW}Using default administrative shares list{Colors.ENDC}")
+    
+    return shares
+
 def detect_windows_version(ip, username, password):
     """
     Detect Windows version by examining system files instead of using nmap.
@@ -863,147 +1419,7 @@ def detect_windows_version(ip, username, password):
             pass
     
     return "Windows (version undetermined)"
-def enumerate_windows_shares(ip, username=None, password=None):
-    """
-    Enumerate available shares on a Windows machine.
-    
-    Args:
-        ip (str): The IP address
-        username (str): Username for authentication
-        password (str): Password for authentication
-        
-    Returns:
-        list: List of available shares
-    """
-    shares = []
-    
-    # If authentication credentials provided, try direct listing first
-    if username and password:
-        # Create a credentials file for safer auth
-        fd, creds_file = tempfile.mkstemp(prefix="smb_auth_")
-        try:
-            with os.fdopen(fd, 'w') as f:
-                # Parse domain if present
-                if '\\' in username:
-                    domain, user = username.split('\\')
-                    f.write(f"username={user}\n")
-                    f.write(f"password={password}\n")
-                    f.write(f"domain={domain}\n")
-                else:
-                    f.write(f"username={username}\n")
-                    f.write(f"password={password}\n")
-            
-            # Use credentials file for authentication
-            cmd = f"smbclient -L //{ip} -A {creds_file}"
-            try:
-                print(f"{Colors.BLUE}Trying to list shares with credentials file{Colors.ENDC}")
-                output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, universal_newlines=True)
-                
-                # Parse the output to extract shares
-                current_section = None
-                for line in output.splitlines():
-                    line = line.strip()
-                    
-                    # Look for the Sharename section header
-                    if "Sharename" in line and "Type" in line and "Comment" in line:
-                        current_section = "shares"
-                        continue
-                    
-                    # Parse shares section
-                    if current_section == "shares" and line and not line.startswith("-"):
-                        parts = line.split()
-                        if len(parts) >= 2 and not parts[0] in ["Sharename", "---------"]:
-                            shares.append(parts[0])
-                
-                print(f"{Colors.GREEN}Successfully enumerated {len(shares)} shares{Colors.ENDC}")
-                
-            except subprocess.CalledProcessError as e:
-                print(f"{Colors.RED}Error listing shares: {e.output.strip()}{Colors.ENDC}")
-                
-                # Try another method with direct username/password
-                try:
-                    cmd = f"smbclient -L //{ip} -U '{username}%{password}'"
-                    output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, universal_newlines=True)
-                    
-                    # Parse the output to extract shares
-                    current_section = None
-                    for line in output.splitlines():
-                        line = line.strip()
-                        
-                        # Look for the Sharename section header
-                        if "Sharename" in line and "Type" in line and "Comment" in line:
-                            current_section = "shares"
-                            continue
-                        
-                        # Parse shares section
-                        if current_section == "shares" and line and not line.startswith("-"):
-                            parts = line.split()
-                            if len(parts) >= 2 and not parts[0] in ["Sharename", "---------"]:
-                                shares.append(parts[0])
-                    
-                    print(f"{Colors.GREEN}Successfully enumerated {len(shares)} shares with direct auth{Colors.ENDC}")
-                    
-                except subprocess.CalledProcessError as e2:
-                    print(f"{Colors.RED}Error with direct auth: {e2.output.strip()}{Colors.ENDC}")
-        
-        finally:
-            # Clean up credentials file
-            try:
-                os.remove(creds_file)
-            except:
-                pass
-    
-    # If no shares found or no credentials provided, try anonymous listing
-    if not shares:
-        try:
-            cmd = f"smbclient -L //{ip} -N"
-            try:
-                print(f"{Colors.BLUE}Trying anonymous share listing{Colors.ENDC}")
-                output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, universal_newlines=True)
-                
-                # Parse the output for share names
-                current_section = None
-                for line in output.splitlines():
-                    line = line.strip()
-                    
-                    # Look for the Sharename section header
-                    if "Sharename" in line and "Type" in line and "Comment" in line:
-                        current_section = "shares"
-                        continue
-                    
-                    # Parse shares section
-                    if current_section == "shares" and line and not line.startswith("-"):
-                        parts = line.split()
-                        if len(parts) >= 2 and not parts[0] in ["Sharename", "---------"]:
-                            shares.append(parts[0])
-                            
-                print(f"{Colors.GREEN}Successfully enumerated {len(shares)} shares anonymously{Colors.ENDC}")
-                
-            except subprocess.CalledProcessError as e:
-                print(f"{Colors.RED}Error with anonymous listing: {e.output.strip()}{Colors.ENDC}")
-                
-                # Try nmblookup as a fallback
-                try:
-                    cmd = f"nmblookup -A {ip}"
-                    output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, universal_newlines=True)
-                    
-                    # Just returning the NetBIOS name here
-                    for line in output.splitlines():
-                        if "<00>" in line and not "<GROUP>" in line:
-                            netbios_name = line.split()[0]
-                            shares.append("NetBIOS Name: " + netbios_name)
-                            print(f"{Colors.GREEN}Found NetBIOS name: {netbios_name}{Colors.ENDC}")
-                except:
-                    pass
-        except Exception as e:
-            print(f"{Colors.RED}General error in share enumeration: {str(e)}{Colors.ENDC}")
-    
-    # If no shares found but we know host is up, add default administrative shares
-    if not shares and ping(ip):
-        shares = ["C$", "ADMIN$", "IPC$"]
-        print(f"{Colors.YELLOW}Using default administrative shares list{Colors.ENDC}")
-    
-    return shares
+
 def scan_windows_system_linux(ip, username=None, password=None):
     """
     Scan a Windows system from Linux using various tools like SSH, smbclient, etc.
@@ -1205,7 +1621,6 @@ def scan_windows_system_linux(ip, username=None, password=None):
         
         finally:
             # Clean up credentials file
-            # Clean up credentials file
             try:
                 os.remove(creds_file)
             except:
@@ -1229,6 +1644,123 @@ def scan_windows_system_linux(ip, username=None, password=None):
             pass
     
     return result
+    
+def get_improved_hostname(ip, username=None, password=None):
+    """
+    Get hostname for an IP address using faster, targeted methods.
+    
+    Args:
+        ip (str): The IP address
+        username (str): Username for authentication (optional)
+        password (str): Password for authentication (optional)
+        
+    Returns:
+        str: Hostname or empty string if not found
+    """
+    hostname = ""
+    
+    # Method 1: Use nmap's rdp-ntlm-info script - much faster than full -A scan
+    try:
+        print(f"{Colors.BLUE}Getting hostname for {ip} using targeted nmap RDP scan{Colors.ENDC}")
+        # This focused scan typically takes just a few seconds instead of minutes
+        cmd = f"sudo nmap -p 3389 --script rdp-ntlm-info --script-timeout 10s {ip}"
+        output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, universal_newlines=True, timeout=15)
+        
+        # Extract hostname information from nmap's output
+        netbios_name_match = re.search(r'NetBIOS_Computer_Name: ([^\s]+)', output)
+        dns_name_match = re.search(r'DNS_Computer_Name: ([^\s]+)', output)
+        
+        if dns_name_match:
+            hostname = dns_name_match.group(1)
+            print(f"{Colors.GREEN}Found FQDN via nmap: {hostname}{Colors.ENDC}")
+            return hostname
+        
+        if netbios_name_match:
+            hostname = netbios_name_match.group(1)
+            print(f"{Colors.GREEN}Found NetBIOS name via nmap: {hostname}{Colors.ENDC}")
+            return hostname
+    except Exception as e:
+        print(f"{Colors.RED}Error with nmap RDP scan: {str(e)}{Colors.ENDC}")
+    
+    # Method 2: Try SMB with nbtscan (very fast)
+    if not hostname:
+        try:
+            print(f"{Colors.BLUE}Getting hostname with nbtscan (fast){Colors.ENDC}")
+            cmd = f"nbtscan -q {ip}"
+            output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, universal_newlines=True, timeout=5)
+            
+            # Parse nbtscan output
+            if ip in output:
+                line = [l for l in output.splitlines() if ip in l][0]
+                parts = line.split()
+                if len(parts) >= 2:
+                    hostname = parts[1]
+                    print(f"{Colors.GREEN}Found hostname via nbtscan: {hostname}{Colors.ENDC}")
+                    return hostname
+        except Exception as e:
+            print(f"{Colors.RED}Error with nbtscan: {str(e)}{Colors.ENDC}")
+    
+    # Try DNS lookup as a fallback
+    if not hostname:
+        try:
+            hostname = get_hostname(ip)
+            if hostname and hostname != ip:
+                print(f"{Colors.GREEN}Found hostname via DNS: {hostname}{Colors.ENDC}")
+                return hostname
+        except:
+            pass
+    
+    return hostname
+       
+def get_mac_address(ip):
+    """
+    Get MAC address for an IP address using faster methods.
+    
+    Args:
+        ip (str): The IP address
+        
+    Returns:
+        str: MAC address or empty string if not found
+    """
+    mac = ""
+    
+    # Method 1: Try using arp command (fastest)
+    try:
+        print(f"{Colors.BLUE}Getting MAC address for {ip} using arp{Colors.ENDC}")
+        cmd = f"arp -n {ip}"
+        output = subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL, universal_newlines=True)
+        
+        # Parse the output line by line
+        for line in output.splitlines():
+            if ip in line:
+                # Match MAC address pattern in the line
+                mac_match = re.search(r'([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})', line)
+                if mac_match:
+                    mac = mac_match.group(0)
+                    print(f"{Colors.GREEN}Found MAC: {mac}{Colors.ENDC}")
+                    return mac
+    except Exception as e:
+        print(f"{Colors.RED}Error getting MAC with arp: {str(e)}{Colors.ENDC}")
+    
+    # Method 2: Targeted nmap scan (much faster than -A)
+    if not mac:
+        try:
+            print(f"{Colors.BLUE}Getting MAC with targeted nmap scan{Colors.ENDC}")
+            # This is much faster than a full -A scan
+            cmd = f"sudo nmap -sS -p 445 --max-retries 1 -n {ip}"
+            output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, universal_newlines=True, timeout=10)
+            
+            # Look for MAC Address line in the output
+            mac_match = re.search(r'MAC Address: ([0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5})', output)
+            if mac_match:
+                mac = mac_match.group(1)
+                print(f"{Colors.GREEN}Found MAC via nmap: {mac}{Colors.ENDC}")
+                return mac
+        except Exception as e:
+            print(f"{Colors.RED}Error with nmap scan: {str(e)}{Colors.ENDC}")
+    
+    return mac
+
 def format_scan_result(host_info, verbose=False):
     """
     Format scan results for terminal output.
@@ -1300,109 +1832,38 @@ def format_scan_result(host_info, verbose=False):
     
     return "\n".join(output)
 
-def initialize_output_file(filename):
+def get_local_networks():
     """
-    Initialize the output file with headers.
+    Get local network subnets.
     
-    Args:
-        filename (str): Filename to save to
-        
     Returns:
-        file: Open file handle for writing results
+        list: List of local network CIDR strings
     """
-    f = open(filename, 'w')
+    if not NETIFACES_AVAILABLE:
+        return []
     
-    if filename.endswith('.csv'):
-        # Write CSV header
-        f.write("IP,Status,Hostname,MAC_Address,OS,Services,Shares,Installed_Software,Running_Services,Foxit_License_Key\n")
+    networks = []
     
-    return f
+    try:
+        for interface in netifaces.interfaces():
+            addrs = netifaces.ifaddresses(interface)
+            if netifaces.AF_INET in addrs:
+                for addr in addrs[netifaces.AF_INET]:
+                    if 'addr' in addr and 'netmask' in addr:
+                        ip = addr['addr']
+                        # Skip loopback
+                        if ip.startswith('127.'):
+                            continue
+                        
+                        # Convert netmask to CIDR notation
+                        netmask = addr['netmask']
+                        prefix_len = sum([bin(int(x)).count('1') for x in netmask.split('.')])
+                        networks.append(f"{ip}/{prefix_len}")
+    except:
+        pass
+    
+    return networks
 
-def write_result_to_file(host, f, is_csv):
-    """
-    Write a single host result to the file.
-    
-    Args:
-        host (dict): Host information dictionary
-        f (file): Open file handle
-        is_csv (bool): Whether the output is CSV format
-    """
-    # Skip offline hosts for CSV output
-    if is_csv and host['status'] != 'online':
-        return
-        
-    if is_csv:
-        # Format CSV line
-        services_str = "|".join([f"{port}:{service}" for port, service in host['services'].items()])
-        shares_str = "|".join(host.get('shares', []))
-        
-        software_list = []
-        service_list = []
-        foxit_key = ""
-        
-        if host.get('windows_info') and host['windows_info'].get('installed_software'):
-            software_list = [soft.get('name', 'Unknown') for soft in host['windows_info']['installed_software']]
-        
-        if host.get('windows_info') and host['windows_info'].get('running_services'):
-            service_list = [srv.get('display_name', srv.get('name', 'Unknown')) for srv in host['windows_info']['running_services']]
-        
-        # Get Foxit license key from system_info
-        if host.get('windows_info') and host['windows_info'].get('system_info') and 'foxit_license_key' in host['windows_info'].get('system_info', {}):
-            foxit_key = host['windows_info']['system_info']['foxit_license_key']
-        
-        software_str = "|".join(software_list)
-        service_str = "|".join(service_list)
-        
-        f.write(f"{host['ip']},{host['status']},{host['hostname']},{host['mac_address']},{host['os']},{services_str},{shares_str},{software_str},{service_str},{foxit_key}\n")
-        f.flush()  # Ensure it's written to disk immediately
-    else:
-        # Text format
-        f.write(f"{'=' * 50}\n")
-        f.write(f"IP: {host['ip']}\n")
-        f.write(f"Status: {host['status']}\n")
-        
-        if host['status'] == 'online':
-            f.write(f"Hostname: {host['hostname']}\n")
-            f.write(f"MAC Address: {host['mac_address']}\n")
-            f.write(f"OS: {host['os']}\n")
-            
-            if host['services']:
-                f.write(f"Services:\n")
-                for port, service in sorted(host['services'].items()):
-                    f.write(f"  Port {port}: {service}\n")
-            
-            if host.get('shares'):
-                f.write(f"Shares:\n")
-                for share in host['shares']:
-                    f.write(f"  {share}\n")
-            
-            if host.get('windows_info'):
-                win_info = host['windows_info']
-                
-                if win_info.get('system_info'):
-                    f.write(f"System Information:\n")
-                    for key, value in win_info['system_info'].items():
-                        f.write(f"  {key}: {value}\n")
-                
-                if win_info.get('installed_software'):
-                    f.write(f"Installed Software:\n")
-                    for software in win_info['installed_software']:
-                        name = software.get('name', 'Unknown')
-                        version = software.get('version', '')
-                        if version:
-                            f.write(f"  {name} - {version}\n")
-                        else:
-                            f.write(f"  {name}\n")
-                
-                if win_info.get('running_services'):
-                    f.write(f"Running Services:\n")
-                    for service in win_info['running_services']:
-                        name = service.get('display_name', service.get('name', 'Unknown'))
-                        f.write(f"  {name}\n")
-        
-        f.write("\n")
-        f.flush()  # Ensure it's written to disk immediately
-                            
 def check_dependencies():
     """Check and inform about missing dependencies."""
     missing = []
@@ -1438,473 +1899,27 @@ def check_dependencies():
             print(f"  Debian/Ubuntu: sudo apt install samba-client")
             print(f"  RHEL/CentOS:   sudo yum install samba-client")
             print(f"  Arch Linux:    sudo pacman -S smbclient\n")
-
-def get_local_networks():
-    """
-    Get local network subnets.
-    
-    Returns:
-        list: List of local network CIDR strings
-    """
-    if not NETIFACES_AVAILABLE:
-        return []
-    
-    networks = []
-    
+        
+def is_scan_already_running(target):
+    """Check if a scan with the same target is already running."""
     try:
-        for interface in netifaces.interfaces():
-            addrs = netifaces.ifaddresses(interface)
-            if netifaces.AF_INET in addrs:
-                for addr in addrs[netifaces.AF_INET]:
-                    if 'addr' in addr and 'netmask' in addr:
-                        ip = addr['addr']
-                        # Skip loopback
-                        if ip.startswith('127.'):
-                            continue
-                        
-                        # Convert netmask to CIDR notation
-                        netmask = addr['netmask']
-                        prefix_len = sum([bin(int(x)).count('1') for x in netmask.split('.')])
-                        networks.append(f"{ip}/{prefix_len}")
-    except:
-        pass
-    
-    return networks
-
-def get_improved_hostname(ip, username=None, password=None):
-    """
-    Get hostname for an IP address using faster, targeted methods.
-    
-    Args:
-        ip (str): The IP address
-        username (str): Username for authentication (optional)
-        password (str): Password for authentication (optional)
+        # Look for existing processes with the same target
+        cmd = f"ps -aux | grep b-activedisc | grep '{target}' | grep -v grep"
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         
-    Returns:
-        str: Hostname or empty string if not found
-    """
-    hostname = ""
-    
-    # Method 1: Use nmap's rdp-ntlm-info script - much faster than full -A scan
-    try:
-        print(f"{Colors.BLUE}Getting hostname for {ip} using targeted nmap RDP scan{Colors.ENDC}")
-        # This focused scan typically takes just a few seconds instead of minutes
-        cmd = f"sudo nmap -p 3389 --script rdp-ntlm-info --script-timeout 10s {ip}"
-        output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, universal_newlines=True, timeout=15)
+        # If we found matching processes
+        if result.stdout.strip():
+            lines = result.stdout.strip().split('\n')
+            if len(lines) > 0:  # More than one process found
+                print(f"Found existing processes running for target {target}:")
+                for line in lines:
+                    print(f"  {line}")
+                return True
         
-        # Extract hostname information from nmap's output
-        netbios_name_match = re.search(r'NetBIOS_Computer_Name: ([^\s]+)', output)
-        dns_name_match = re.search(r'DNS_Computer_Name: ([^\s]+)', output)
-        
-        if dns_name_match:
-            hostname = dns_name_match.group(1)
-            print(f"{Colors.GREEN}Found FQDN via nmap: {hostname}{Colors.ENDC}")
-            return hostname
-        
-        if netbios_name_match:
-            hostname = netbios_name_match.group(1)
-            print(f"{Colors.GREEN}Found NetBIOS name via nmap: {hostname}{Colors.ENDC}")
-            return hostname
+        return False
     except Exception as e:
-        print(f"{Colors.RED}Error with nmap RDP scan: {str(e)}{Colors.ENDC}")
-    
-    # Method 2: Try SMB with nbtscan (very fast)
-    if not hostname:
-        try:
-            print(f"{Colors.BLUE}Getting hostname with nbtscan (fast){Colors.ENDC}")
-            cmd = f"nbtscan -q {ip}"
-            output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, universal_newlines=True, timeout=5)
-            
-            # Parse nbtscan output
-            if ip in output:
-                line = [l for l in output.splitlines() if ip in l][0]
-                parts = line.split()
-                if len(parts) >= 2:
-                    hostname = parts[1]
-                    print(f"{Colors.GREEN}Found hostname via nbtscan: {hostname}{Colors.ENDC}")
-                    return hostname
-        except Exception as e:
-            print(f"{Colors.RED}Error with nbtscan: {str(e)}{Colors.ENDC}")
-    
-    # Add additional fast methods here if needed
-    
-    return hostname
-       
-def get_mac_from_nmap(ip):
-    """Try to get MAC address using nmap."""
-    try:
-        print(f"{Colors.BLUE}Getting MAC with nmap scan{Colors.ENDC}")
-        cmd = f"sudo nmap -A {ip}"
-        output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, universal_newlines=True)
-        
-        # Look for MAC Address line in the output
-        mac_match = re.search(r'MAC Address: ([0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5})', output)
-        if mac_match:
-            mac = mac_match.group(1)
-            print(f"{Colors.GREEN}Found MAC via nmap: {mac}{Colors.ENDC}")
-            return mac
-        return ""
-    except Exception as e:
-        print(f"{Colors.RED}Error with nmap scan: {str(e)}{Colors.ENDC}")
-        return ""
-        
-def get_mac_address(ip):
-    """
-    Get MAC address for an IP address using faster methods.
-    
-    Args:
-        ip (str): The IP address
-        
-    Returns:
-        str: MAC address or empty string if not found
-    """
-    mac = ""
-    
-    # Method 1: Try using arp command (fastest)
-    try:
-        print(f"{Colors.BLUE}Getting MAC address for {ip} using arp{Colors.ENDC}")
-        cmd = f"arp -n {ip}"
-        output = subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL, universal_newlines=True)
-        
-        # Parse the output line by line
-        for line in output.splitlines():
-            if ip in line:
-                # Match MAC address pattern in the line
-                mac_match = re.search(r'([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})', line)
-                if mac_match:
-                    mac = mac_match.group(0)
-                    print(f"{Colors.GREEN}Found MAC: {mac}{Colors.ENDC}")
-                    return mac
-    except Exception as e:
-        print(f"{Colors.RED}Error getting MAC with arp: {str(e)}{Colors.ENDC}")
-    
-    # Method 2: Targeted nmap scan (much faster than -A)
-    if not mac:
-        try:
-            print(f"{Colors.BLUE}Getting MAC with targeted nmap scan{Colors.ENDC}")
-            # This is much faster than a full -A scan
-            cmd = f"sudo nmap -sS -p 445 --max-retries 1 -n {ip}"
-            output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, universal_newlines=True, timeout=10)
-            
-            # Look for MAC Address line in the output
-            mac_match = re.search(r'MAC Address: ([0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5})', output)
-            if mac_match:
-                mac = mac_match.group(1)
-                print(f"{Colors.GREEN}Found MAC via nmap: {mac}{Colors.ENDC}")
-                return mac
-        except Exception as e:
-            print(f"{Colors.RED}Error with nmap scan: {str(e)}{Colors.ENDC}")
-    
-    return mac
-    
-def scan_host(ip, full_scan=False, username=None, password=None):
-    """
-    Scan a host for information.
-    
-    Args:
-        ip (str): The IP address
-        full_scan (bool): Whether to do a full scan (including OS detection)
-        username (str): Username for authentication (Windows scanning)
-        password (str): Password for authentication (Windows scanning)
-        
-    Returns:
-        dict: Host information
-    """
-    result = {
-        'ip': str(ip),
-        'status': 'offline',
-        'hostname': '',
-        'mac_address': '',
-        'os': '',
-        'services': {},
-        'shares': [],
-        'windows_info': {},
-        'scan_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    }
-    
-    if ping(ip):
-        result['status'] = 'online'
-        
-        # Try to get MAC address
-        print(f"\n{Colors.BOLD}Scanning host: {ip}{Colors.ENDC}")
-        result['mac_address'] = get_mac_address(ip)
-        
-        # Try to get hostname
-        result['hostname'] = get_improved_hostname(ip, username, password)
-        
-        if full_scan:
-            result['os'] = os_detection(ip)
-            result['services'] = scan_services(ip)
-            
-            # If it appears to be a Windows machine based on ports or OS detection
-            is_windows = False
-            
-            # Check port 445 (SMB) is open - strong indicator of Windows
-            if 445 in result['services'] or 139 in result['services']:
-                is_windows = True
-            
-            # Check OS detection results
-            if result['os'] and ('windows' in result['os'].lower() or 'microsoft' in result['os'].lower()):
-                is_windows = True
-            
-            # If credentials provided or it looks like Windows, try Windows-specific scans
-            if is_windows or (username and password):
-                # Try to enumerate shares
-                result['shares'] = enumerate_windows_shares(ip, username, password)
-                
-                # If credentials provided, attempt to scan Windows system
-                if username and password:
-                    if platform.system() == "Windows":
-                        result['windows_info'] = scan_windows_system(ip, username, password)
-                    else:
-                        result['windows_info'] = scan_windows_system_linux(ip, username, password)
-    
-    return result
-    
-def main():
-    parser = argparse.ArgumentParser(description="Network Discovery Tool")
-    target_group = parser.add_mutually_exclusive_group(required=True)
-    target_group.add_argument('-r', '--range', help='IP range (e.g., 192.168.1.1-192.168.1.254)')
-    target_group.add_argument('-s', '--subnet', help='Subnet in CIDR notation (e.g., 192.168.1.0/24)')
-    target_group.add_argument('-t', '--target', help='Single IP target')
-    target_group.add_argument('-l', '--local', action='store_true', help='Scan local networks')
-    target_group.add_argument('-q', '--query', choices=['online_hosts', 'hosts_with_port', 'hosts_with_software', 'hosts_with_foxit', 'scan_sessions'], help='Query the database without scanning')
-    
-    parser.add_argument('-f', '--full', action='store_true', help='Perform full scan (OS detection, service discovery)')
-    parser.add_argument('-w', '--workers', type=int, default=50, help='Number of parallel workers (default: 50)')
-    parser.add_argument('-o', '--output', help='Export results to CSV file')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Show offline hosts')
-    parser.add_argument('-u', '--username', help='Username for Windows authentication')
-    parser.add_argument('-p', '--password', help='Password for Windows authentication')
-    parser.add_argument('--ask-password', action='store_true', help='Prompt for password instead of using command line argument')
-    parser.add_argument('--find-foxit-license', action='store_true', help='Search for Foxit PDF license key')
-    parser.add_argument('--db-path', default='network_discovery.db', help='Path to SQLite database file (default: network_discovery.db)')
-    parser.add_argument('--stats', action='store_true', help='Show database statistics')
-    parser.add_argument('--param', help='Parameter for database query (used with --query)')
-    
-    args = parser.parse_args()
-    
-    # Connect to the database
-    conn, cursor = init_database(args.db_path)
-    
-    # Handle database-only operations
-    if args.query:
-        params = (args.param,) if args.param else ()
-        results = query_database(conn, args.query, params)
-        
-        if not results:
-            print(f"No results found for query: {args.query}")
-        else:
-            print(f"\nResults for query: {args.query}")
-            print("=" * 80)
-            
-            # Print column names
-            columns = list(results[0].keys())
-            print(" | ".join(columns))
-            print("-" * 80)
-            
-            # Print rows
-            for row in results:
-                values = [str(row[col]) for col in columns]
-                print(" | ".join(values))
-            
-            print(f"\nTotal results: {len(results)}")
-        
-        # Export to CSV if requested
-        if args.output:
-            export_to_csv(conn, args.output)
-        
-        conn.close()
-        return
-    
-    # Show database statistics if requested
-    if args.stats:
-        stats = get_db_stats(conn)
-        
-        print("\nDatabase Statistics")
-        print("=" * 80)
-        print(f"Total hosts: {stats['total_hosts']}")
-        print(f"Online hosts: {stats['online_hosts']} ({stats['online_hosts']/stats['total_hosts']*100:.1f}% if stats['total_hosts'] > 0 else 0.0%)")
-        
-        print("\nOS Distribution:")
-        for os_info in stats['os_distribution']:
-            print(f"  {os_info['os']}: {os_info['count']}")
-        
-        print("\nTop 10 Open Ports:")
-        for port_info in stats['top_ports']:
-            print(f"  Port {port_info['port']}: {port_info['count']} hosts")
-        
-        print(f"\nHosts with Foxit license keys: {stats['foxit_license_count']}")
-        
-        # Export to CSV if requested
-        if args.output:
-            export_to_csv(conn, args.output)
-        
-        conn.close()
-        return
-    
-    # Handle password input securely
-    password = None
-    if args.ask_password:
-        import getpass
-        if args.username:
-            password = getpass.getpass(f"Enter password for {args.username}: ")
-        else:
-            password = getpass.getpass("Enter password: ")
-    else:
-        password = args.password
-    
-    # Check for missing dependencies
-    check_dependencies()
-    
-    targets = []
-    target_description = ""
-    
-    # Generate target list based on input method
-    if args.target:
-        try:
-            ipaddress.ip_address(args.target)
-            targets.append(args.target)
-            target_description = f"IP: {args.target}"
-        except ValueError:
-            print(f"Error: Invalid IP address: {args.target}")
-            sys.exit(1)
-    
-    elif args.range:
-        try:
-            start, end = args.range.split('-')
-            start_ip = ipaddress.ip_address(start)
-            end_ip = ipaddress.ip_address(end)
-            
-            if start_ip.version != end_ip.version:
-                print("Error: IP range must be of the same version (IPv4 or IPv6)")
-                sys.exit(1)
-            
-            # Convert to integers for easier iteration
-            start_int = int(start_ip)
-            end_int = int(end_ip)
-            
-            if start_int > end_int:
-                print("Error: Start IP must be less than or equal to end IP")
-                sys.exit(1)
-            
-            for ip_int in range(start_int, end_int + 1):
-                targets.append(str(ipaddress.ip_address(ip_int)))
-            
-            target_description = f"Range: {start}-{end}"
-            
-        except ValueError as e:
-            print(f"Error: Invalid IP range: {e}")
-            sys.exit(1)
-    
-    elif args.subnet:
-        try:
-            network = ipaddress.ip_network(args.subnet, strict=False)
-            targets = [str(ip) for ip in network.hosts()]
-            target_description = f"Subnet: {args.subnet}"
-        except ValueError as e:
-            print(f"Error: Invalid subnet: {e}")
-            sys.exit(1)
-    
-    elif args.local:
-        local_networks = get_local_networks()
-        if not local_networks:
-            print("Error: Could not determine local networks. Please install netifaces or specify targets manually.")
-            sys.exit(1)
-        
-        print(f"Detected local networks: {', '.join(local_networks)}")
-        target_description = f"Local Networks: {', '.join(local_networks)}"
-        
-        for net_cidr in local_networks:
-            try:
-                network = ipaddress.ip_network(net_cidr, strict=False)
-                targets.extend([str(ip) for ip in network.hosts()])
-            except ValueError as e:
-                print(f"Error with network {net_cidr}: {e}")
-    
-    # Remove duplicates
-    targets = list(set(targets))
-    
-    if not targets:
-        print("Error: No valid targets specified")
-        sys.exit(1)
-    
-    print(f"\nStarting scan of {len(targets)} hosts at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"{'Full scan' if args.full else 'Basic scan'} with {args.workers} parallel workers")
-    print(f"Storing results in database: {args.db_path}\n")
-    
-    # Start a new scan session in the database
-    scan_type = "Full" if args.full else "Basic"
-    session_id = start_scan_session(cursor, target_description, len(targets), scan_type)
-    conn.commit()
-    
-    start_time = time.time()
-    
-    # Initialize output file if CSV export is requested
-    output_file = None
-    if args.output:
-        print(f"Results will also be exported to CSV: {args.output} after scan completion")
-    
-    # Track statistics
-    online_count = 0
-    
-    # Use ThreadPoolExecutor for parallel scanning
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as executor:
-        future_to_ip = {executor.submit(scan_host, ip, args.full, args.username, password): ip for ip in targets}
-        
-        # Show progress indicator
-        total = len(targets)
-        completed = 0
-        
-        for future in concurrent.futures.as_completed(future_to_ip):
-            ip = future_to_ip[future]
-            try:
-                host_info = future.result()
-                
-                # Insert into database
-                insert_host_to_db(conn, cursor, host_info, session_id)
-                
-                if host_info['status'] == 'online':
-                    online_count += 1
-                    print(format_scan_result(host_info))
-                elif args.verbose:
-                    print(format_scan_result(host_info, args.verbose))
-                
-            except Exception as e:
-                print(f"{ip} - Error: {e}")
-            
-            completed += 1
-            if completed % 10 == 0 or completed == total:
-                progress = (completed / total) * 100
-                elapsed = time.time() - start_time
-                rate = completed / elapsed if elapsed > 0 else 0
-                remaining = (total - completed) / rate if rate > 0 else 0
-                
-                sys.stdout.write(f"\rProgress: {completed}/{total} ({progress:.1f}%) | "
-                               f"Online: {online_count} | "
-                               f"Elapsed: {elapsed:.1f}s | "
-                               f"Remaining: {remaining:.1f}s")
-                sys.stdout.flush()
-    
-    # Update scan session with results
-    end_scan_session(cursor, session_id, online_count)
-    conn.commit()
-    
-    # Export to CSV if requested
-    if args.output:
-        export_to_csv(conn, args.output)
-    
-    # Close the database connection
-    conn.close()
-    
-    # Final stats
-    duration = time.time() - start_time
-    
-    print(f"\n\nScan completed in {duration:.2f} seconds")
-    print(f"Hosts scanned: {len(targets)}")
-    print(f"Hosts online: {online_count} ({(online_count/len(targets))*100:.1f}%)")
-    print(f"Results stored in database: {args.db_path}")
-    print(f"To query results: {sys.argv[0]} --query online_hosts --db-path {args.db_path}")
+        print(f"Error checking for running scans: {str(e)}")
+        return False
 
 if __name__ == "__main__":
     # Import os here to avoid potential issues with is_admin function

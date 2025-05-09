@@ -1,0 +1,87 @@
+2025-05-05 12:15:41,373 ERROR: Exception on /queries/predefined [POST] [in /opt/sidney/venv/lib/python3.12/site-packages/flask/app.py:1414]
+Traceback (most recent call last):
+  File "/opt/sidney/venv/lib/python3.12/site-packages/flask/app.py", line 2190, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sidney/venv/lib/python3.12/site-packages/flask/app.py", line 1486, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sidney/venv/lib/python3.12/site-packages/flask/app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sidney/venv/lib/python3.12/site-packages/flask/app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sidney/venv/lib/python3.12/site-packages/flask_login/utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sidney/app/routes/queries.py", line 63, in predefined
+    results = run_predefined_query(query_name, params)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sidney/app/routes/queries.py", line 467, in run_predefined_query
+    cursor.execute(query['sql'], query['params'])
+sqlite3.OperationalError: no such column: last_seen
+2025-05-05 12:15:41,375 ERROR: Server Error: 500 Internal Server Error: The server encountered an internal error and was unable to complete your request. Either the server is overloaded or there is an error in the application. [in /opt/sidney/app/errors.py:10]
+2025-05-05 12:17:34,133 INFO: Sidney starting up [in /opt/sidney/app/__init__.py:33]
+2025-05-05 12:18:09,375 INFO: Sidney starting up [in /opt/sidney/app/__init__.py:33]
+2025-05-05 12:24:16,529 ERROR: Error getting chart data: float() argument must be a string or a real number, not 'NoneType' [in /opt/sidney/app/routes/dashboard.py:204]
+2025-05-09 12:04:43,199 INFO: Sidney starting up [in /opt/sidney/app/__init__.py:33]
+2025-05-09 12:12:36,961 ERROR: Error getting chart data: float() argument must be a string or a real number, not 'NoneType' [in /opt/sidney/app/routes/dashboard.py:204]
+2025-05-09 12:14:10,547 ERROR: Error getting chart data: float() argument must be a string or a real number, not 'NoneType' [in /opt/sidney/app/routes/dashboard.py:204]
+2025-05-09 12:14:13,176 ERROR: Error getting chart data: float() argument must be a string or a real number, not 'NoneType' [in /opt/sidney/app/routes/dashboard.py:204]
+2025-05-09 12:14:45,120 ERROR: Error getting chart data: float() argument must be a string or a real number, not 'NoneType' [in /opt/sidney/app/routes/dashboard.py:204]
+2025-05-09 12:14:47,040 ERROR: Error getting chart data: float() argument must be a string or a real number, not 'NoneType' [in /opt/sidney/app/routes/dashboard.py:204]
+2025-05-09 12:54:33,168 ERROR: Error getting chart data: float() argument must be a string or a real number, not 'NoneType' [in /opt/sidney/app/routes/dashboard.py:204]
+2025-05-09 12:59:18,334 ERROR: Error getting chart data: float() argument must be a string or a real number, not 'NoneType' [in /opt/sidney/app/routes/dashboard.py:204]
+2025-05-09 13:30:34,509 INFO: Sidney starting up [in /opt/sidney/app/__init__.py:33]
+2025-05-09 13:30:37,836 ERROR: Error getting chart data: float() argument must be a string or a real number, not 'NoneType' [in /opt/sidney/app/routes/dashboard.py:204]
+2025-05-09 13:30:43,833 ERROR: Exception on /queries/predefined [POST] [in /opt/sidney/venv/lib/python3.12/site-packages/flask/app.py:1414]
+Traceback (most recent call last):
+  File "/opt/sidney/venv/lib/python3.12/site-packages/flask/app.py", line 2190, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sidney/venv/lib/python3.12/site-packages/flask/app.py", line 1486, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sidney/venv/lib/python3.12/site-packages/flask/app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sidney/venv/lib/python3.12/site-packages/flask/app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sidney/venv/lib/python3.12/site-packages/flask_login/utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sidney/app/routes/queries.py", line 199, in predefined
+    return render_template(
+           ^^^^^^^^^^^^^^^^
+  File "/opt/sidney/venv/lib/python3.12/site-packages/flask/templating.py", line 151, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sidney/venv/lib/python3.12/site-packages/flask/templating.py", line 132, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sidney/venv/lib/python3.12/site-packages/jinja2/environment.py", line 1301, in render
+    self.environment.handle_exception()
+  File "/opt/sidney/venv/lib/python3.12/site-packages/jinja2/environment.py", line 936, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "/opt/sidney/app/templates/queries/predefined.html", line 1, in top-level template code
+    {% extends "layout.html" %}
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sidney/app/templates/layout.html", line 93, in top-level template code
+    {% block content %}{% endblock %}
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sidney/app/templates/queries/predefined.html", line 147, in block 'content'
+    <form action="{{ url_for('queries.export_results') }}" method="post">
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sidney/venv/lib/python3.12/site-packages/flask/app.py", line 1697, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sidney/venv/lib/python3.12/site-packages/flask/app.py", line 1686, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/sidney/venv/lib/python3.12/site-packages/werkzeug/routing/map.py", line 950, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'queries.export_results'. Did you mean 'queries.index' instead?
+2025-05-09 13:30:43,837 ERROR: Server Error: 500 Internal Server Error: The server encountered an internal error and was unable to complete your request. Either the server is overloaded or there is an error in the application. [in /opt/sidney/app/errors.py:10]
+2025-05-09 13:34:30,664 INFO: Sidney starting up [in /opt/sidney/app/__init__.py:33]
