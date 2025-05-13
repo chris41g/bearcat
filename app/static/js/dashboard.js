@@ -29,49 +29,121 @@ function initDashboardCharts(chartData) {
         osChart.destroy();
     }
     
-    // Host Trends Chart
-    const trendsCtx = document.getElementById('hostTrendsChart');
-    if (trendsCtx && chartData.sessions && chartData.sessions.labels && chartData.sessions.labels.length > 0) {
-        trendChart = new Chart(trendsCtx, {
-            type: 'line',
-            data: {
-                labels: chartData.sessions.labels,
-                datasets: [
-                    {
-                        label: 'Online Hosts',
-                        data: chartData.sessions.online_hosts,
-                        borderColor: bearcatColors.secondary,
-                        backgroundColor: 'rgba(138, 40, 70, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4
+    // Validate chart data
+    if (!chartData || !chartData.sessions || !chartData.os_distribution) {
+        console.error("Invalid chart data structure:", chartData);
+        return;
+    }
+    
+// Host Trends Chart - Online hosts focused
+const trendsCtx = document.getElementById('hostTrendsChart');
+if (trendsCtx && chartData.sessions.labels.length > 0) {
+    trendChart = new Chart(trendsCtx, {
+        type: 'line',
+        data: {
+            labels: chartData.sessions.labels,
+            datasets: [
+                {
+                    label: 'Online Hosts',
+                    data: chartData.sessions.online_hosts,
+                    borderColor: bearcatColors.primary,
+                    backgroundColor: 'rgba(101, 29, 50, 0.2)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    pointBackgroundColor: bearcatColors.primary,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Online Percentage',
+                    data: chartData.sessions.percentages,
+                    borderColor: bearcatColors.secondary,
+                    backgroundColor: 'rgba(138, 40, 70, 0.1)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    borderDash: [3, 3],
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Number of Hosts',
+                        color: bearcatColors.primary,
+                        font: {
+                            weight: 'bold'
+                        }
                     },
-                    {
-                        label: 'Total Hosts',
-                        data: chartData.sessions.total_hosts,
-                        borderColor: bearcatColors.primary,
-                        backgroundColor: 'rgba(101, 29, 50, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4
+                    ticks: {
+                        color: bearcatColors.primary
                     }
-                ]
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    max: 100,
+                    min: 0,
+                    title: {
+                        display: true,
+                        text: 'Online Percentage (%)',
+                        color: bearcatColors.secondary
+                    },
+                    ticks: {
+                        color: bearcatColors.secondary,
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 20
+                    }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        label: function(context) {
+                            if (context.datasetIndex === 0) {
+                                return 'Online Hosts: ' + context.parsed.y;
+                            }
+                            return 'Online: ' + context.parsed.y.toFixed(1) + '%';
+                        }
                     }
                 }
             }
-        });
-    }
+        }
+    });
+}
     
     // OS Distribution Chart
     const osCtx = document.getElementById('osDistributionChart');
-    if (osCtx && chartData.os_distribution && chartData.os_distribution.labels && chartData.os_distribution.labels.length > 0) {
+    if (osCtx && chartData.os_distribution.labels.length > 0) {
         osChart = new Chart(osCtx, {
             type: 'doughnut',
             data: {
@@ -92,6 +164,8 @@ function initDashboardCharts(chartData) {
                 }
             }
         });
+    } else {
+        console.warn("No OS distribution data available or canvas element not found");
     }
 }
 
@@ -104,33 +178,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (chartDataElement) {
             try {
                 const chartData = JSON.parse(chartDataElement.textContent);
+                console.log("Parsed chart data:", chartData);
                 initDashboardCharts(chartData);
             } catch (e) {
                 console.error("Error parsing chart data:", e);
+                console.error("Chart data content:", chartDataElement.textContent);
             }
+        } else {
+            console.error("Chart data element not found");
         }
-    }
-    
-    // Add refresh button handler
-    const refreshButton = document.getElementById('refreshDashboard');
-    if (refreshButton) {
-        refreshButton.addEventListener('click', function() {
-            refreshButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
-            refreshButton.disabled = true;
-            
-            // Fetch fresh data
-            fetch('/api/dashboard/charts')
-                .then(response => response.json())
-                .then(data => {
-                    initDashboardCharts(data);
-                    refreshButton.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh';
-                    refreshButton.disabled = false;
-                })
-                .catch(error => {
-                    console.error('Error refreshing charts:', error);
-                    refreshButton.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh';
-                    refreshButton.disabled = false;
-                });
-        });
     }
 });

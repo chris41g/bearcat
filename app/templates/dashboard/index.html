@@ -156,7 +156,7 @@
 </div>
 
 <!-- Store chart data in a hidden element -->
-<div id="chart-data" style="display: none;">{{ chart_data|safe }}</div>
+<div id="chart-data" style="display: none;">{{ chart_data|tojson|safe }}</div>
 
 <!-- Recent Scans and Top Ports -->
 <div class="row">
