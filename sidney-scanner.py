@@ -637,18 +637,6 @@ def main():
     parser.add_argument('--switch-password', help='Password for switch authentication')
     parser.add_argument('--switch-secret', help='Enable password for switch (if required)')
     
-    # Switch configuration arguments
-    parser.add_argument('--switch-ip', help='IP address of managed switch for MAC/VLAN lookup')
-    parser.add_argument('--switch-username', help='Username for switch authentication')
-    parser.add_argument('--switch-password', help='Password for switch authentication')
-    parser.add_argument('--switch-secret', help='Enable password for switch (if required)')
-    
-    # Switch configuration arguments
-    parser.add_argument('--switch-ip', help='IP address of managed switch for MAC/VLAN lookup')
-    parser.add_argument('--switch-username', help='Username for switch authentication')
-    parser.add_argument('--switch-password', help='Password for switch authentication')
-    parser.add_argument('--switch-secret', help='Enable password for switch (if required)')
-    
     args = parser.parse_args()
     
     # Connect to the database
