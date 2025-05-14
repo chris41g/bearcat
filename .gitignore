@@ -28,3 +28,6 @@ check_foxit_licenses.py
 net*.db
 migrate_sidney_db.py
 net*.db*
+
+venv/
+macscans.py
