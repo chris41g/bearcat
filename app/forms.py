@@ -1,7 +1,9 @@
+# app/forms.py - Enhanced version with new query options
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SubmitField, SelectField, IntegerField, TextAreaField
 from wtforms.validators import DataRequired, Email, EqualTo, ValidationError, IPAddress, Optional, NumberRange, Length
 import ipaddress
+import re
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
@@ -74,18 +76,79 @@ class ScanForm(FlaskForm):
 
 class QueryForm(FlaskForm):
     query_type = SelectField('Query Type', 
-                            choices=[('online_hosts', 'All Online Hosts'),
-                                     ('hosts_with_port', 'Hosts with Specific Port'),
-                                     ('hosts_with_software', 'Hosts with Specific Software'),
-                                     ('hosts_with_foxit', 'Hosts with Foxit License'),
-                                     ('scan_sessions', 'Scan Sessions')],
+                            choices=[
+                                ('online_hosts', 'All Online Hosts'),
+                                ('hosts_with_port', 'Hosts with Specific Port'),
+                                ('hosts_with_software', 'Hosts with Specific Software'),
+                                ('hosts_with_foxit', 'Hosts with Foxit License'),
+                                ('foxit_without_license', 'Foxit Installs Without License'),
+                                ('foxit_all_installs', 'All Foxit Installs (With/Without License)'),
+                                ('hosts_by_ip', 'Search Hosts by IP/Subnet/Range'),
+                                ('hosts_by_os', 'Hosts by Operating System'),
+                                ('hosts_with_shares', 'Hosts with Network Shares'),
+                                ('hosts_with_admin_shares', 'Hosts with Admin Shares'),
+                                ('windows_hosts', 'Windows Hosts Only'),
+                                ('linux_hosts', 'Linux Hosts Only'),
+                                ('recent_scans', 'Recent Scan Results'),
+                                ('scan_sessions', 'Scan Session History')
+                            ],
                             validators=[DataRequired()])
     
+    # Port parameter
     port = IntegerField('Port Number', validators=[Optional(), NumberRange(min=1, max=65535)])
     
+    # Software parameter
     software = StringField('Software Name (partial match)', validators=[Optional(), Length(max=100)])
     
+    # IP/Subnet/Range parameter
+    ip_search = StringField('IP/Subnet/Range', validators=[Optional(), Length(max=100)])
+    
+    # OS parameter
+    os_filter = StringField('Operating System (partial match)', validators=[Optional(), Length(max=100)])
+    
+    # Share name parameter
+    share_name = StringField('Share Name (partial match)', validators=[Optional(), Length(max=100)])
+    
+    # Days parameter for recent scans
+    days = IntegerField('Days (for recent scans)', default=7, validators=[Optional(), NumberRange(min=1, max=365)])
+    
     submit = SubmitField('Run Query')
+    
+    def validate_ip_search(self, field):
+        """Validate IP search field if it's being used"""
+        if self.query_type.data == 'hosts_by_ip' and field.data:
+            try:
+                # Check if it's a single IP
+                ipaddress.ip_address(field.data)
+                return
+            except ValueError:
+                pass
+            
+            try:
+                # Check if it's a subnet
+                ipaddress.ip_network(field.data, strict=False)
+                return
+            except ValueError:
+                pass
+            
+            # Check if it's a range
+            if '-' in field.data:
+                try:
+                    start, end = field.data.split('-', 1)
+                    ipaddress.ip_address(start.strip())
+                    ipaddress.ip_address(end.strip())
+                    return
+                except (ValueError, AttributeError):
+                    pass
+            
+            # Check if it contains wildcards
+            if '*' in field.data or '?' in field.data:
+                # Allow wildcards like 192.168.1.* or 192.168.1.1??
+                pattern = field.data.replace('*', '[0-9]+').replace('?', '[0-9]')
+                if re.match(r'^[\d\.?\*]+$', field.data):
+                    return
+            
+            raise ValidationError('Invalid IP address, subnet (CIDR), range (IP1-IP2), or wildcard pattern')
 
 class CustomQueryForm(FlaskForm):
     sql_query = TextAreaField('SQL Query', validators=[DataRequired()])

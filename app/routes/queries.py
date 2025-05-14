@@ -1,11 +1,14 @@
+# app/routes/queries.py - Enhanced version with new predefined queries
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
 from flask_login import login_required, current_user
 from app.forms import QueryForm, CustomQueryForm
 from app.models import SavedQuery
 from app.extensions import db
-from datetime import datetime
+from datetime import datetime, timedelta
 import sqlite3
 import json
+import ipaddress
+import re
 
 queries_bp = Blueprint('queries', __name__)
 
@@ -55,12 +58,25 @@ def predefined():
         
         # Build parameters for the query
         params = {}
+        
         if query_name == 'hosts_with_port' and form.port.data:
             params['port'] = form.port.data
         elif query_name == 'hosts_with_software' and form.software.data:
             params['software'] = f'%{form.software.data}%'
+        elif query_name == 'hosts_by_ip' and form.ip_search.data:
+            params['ip_search'] = form.ip_search.data
+        elif query_name == 'hosts_by_os' and form.os_filter.data:
+            params['os_filter'] = f'%{form.os_filter.data}%'
+        elif query_name == 'hosts_with_shares' and form.share_name.data:
+            params['share_name'] = f'%{form.share_name.data}%'
+        elif query_name == 'recent_scans' and form.days.data:
+            params['days'] = form.days.data
         
-        results = run_predefined_query(query_name, params)
+        try:
+            results = run_predefined_query(query_name, params)
+        except Exception as e:
+            error = str(e)
+            current_app.logger.error(f"Error running predefined query {query_name}: {str(e)}")
         
         # Update last run time if this is a saved query
         saved_query = SavedQuery.query.filter_by(
@@ -354,6 +370,49 @@ def host_details(ip):
         flash(f'Error retrieving host details: {str(e)}', 'danger')
         return redirect(url_for('queries.index'))
 
+def convert_wildcard_to_sql(wildcard_pattern):
+    """Convert wildcard pattern to SQL LIKE pattern and WHERE clause"""
+    if not wildcard_pattern:
+        return None, []
+    
+    # Handle wildcards
+    if '*' in wildcard_pattern or '?' in wildcard_pattern:
+        # Convert wildcards to SQL LIKE pattern
+        sql_pattern = wildcard_pattern.replace('*', '%').replace('?', '_')
+        return "ip LIKE ?", [sql_pattern]
+    
+    # Try to parse as single IP
+    try:
+        ipaddress.ip_address(wildcard_pattern)
+        return "ip = ?", [wildcard_pattern]
+    except ValueError:
+        pass
+    
+    # Try to parse as subnet
+    try:
+        network = ipaddress.ip_network(wildcard_pattern, strict=False)
+        # For subnet queries, we need to check if IP is in range
+        network_addr = str(network.network_address)
+        broadcast_addr = str(network.broadcast_address)
+        return "ip BETWEEN ? AND ?", [network_addr, broadcast_addr]
+    except ValueError:
+        pass
+    
+    # Try to parse as range
+    if '-' in wildcard_pattern:
+        try:
+            start_ip, end_ip = wildcard_pattern.split('-', 1)
+            start_ip = start_ip.strip()
+            end_ip = end_ip.strip()
+            ipaddress.ip_address(start_ip)
+            ipaddress.ip_address(end_ip)
+            return "ip BETWEEN ? AND ?", [start_ip, end_ip]
+        except (ValueError, AttributeError):
+            pass
+    
+    # If nothing else works, treat as text search
+    return "ip LIKE ?", [f'%{wildcard_pattern}%']
+
 def run_predefined_query(query_name, params=None):
     """
     Execute a predefined query against the database.
@@ -374,97 +433,176 @@ def run_predefined_query(query_name, params=None):
         cursor = conn.cursor()
         
         # Define predefined queries for new schema
-        queries = {
-            'online_hosts': {
-                'sql': """
-                    SELECT ip, hostname, os, mac_address, last_seen
-                    FROM hosts 
-                    WHERE status = 'online'
-                    ORDER BY ip
-                """,
-                'params': []
-            },
-            'hosts_with_port': {
-                'sql': """
-                    SELECT h.ip, h.hostname, h.os, s.port, s.service_name
-                    FROM hosts h
-                    JOIN services s ON h.ip = s.ip
-                    WHERE s.port = ? AND h.status = 'online'
-                    ORDER BY h.ip
-                """,
-                'params': [params.get('port', 0)]
-            },
-            'hosts_with_software': {
-                'sql': """
-                    SELECT h.ip, h.hostname, h.os, i.name, i.version
-                    FROM hosts h
-                    JOIN installed_software i ON h.ip = i.ip
-                    WHERE i.name LIKE ? AND h.status = 'online'
-                    ORDER BY h.ip
-                """,
-                'params': [params.get('software', '%')]
-            },
-            'hosts_with_foxit': {
-                'sql': """
-                    SELECT h.ip, h.hostname, h.os, si.value AS foxit_license_key
-                    FROM hosts h
-                    JOIN system_info si ON h.ip = si.ip
-                    WHERE si.key = 'foxit_license_key' AND h.status = 'online'
-                    ORDER BY h.ip
-                """,
-                'params': []
-            },
-            'scan_sessions': {
-                'sql': """
-                    SELECT id, start_time, end_time, target_range, hosts_total, hosts_online,
-                           (hosts_online * 100.0 / hosts_total) AS online_percentage,
-                           scan_type
-                    FROM scan_sessions
-                    ORDER BY start_time DESC
-                """,
-                'params': []
-            },
-            'windows_hosts': {
-                'sql': """
-                    SELECT ip, hostname, os, mac_address, last_seen
+        if query_name == 'online_hosts':
+            cursor.execute("""
+                SELECT ip, hostname, os, mac_address, last_seen
+                FROM hosts 
+                WHERE status = 'online'
+                ORDER BY ip
+            """)
+            
+        elif query_name == 'hosts_with_port':
+            cursor.execute("""
+                SELECT h.ip, h.hostname, h.os, s.port, s.service_name
+                FROM hosts h
+                JOIN services s ON h.ip = s.ip
+                WHERE s.port = ? AND h.status = 'online'
+                ORDER BY h.ip
+            """, [params.get('port', 0)])
+            
+        elif query_name == 'hosts_with_software':
+            cursor.execute("""
+                SELECT h.ip, h.hostname, h.os, i.name, i.version
+                FROM hosts h
+                JOIN installed_software i ON h.ip = i.ip
+                WHERE i.name LIKE ? AND h.status = 'online'
+                ORDER BY h.ip
+            """, [params.get('software', '%')])
+            
+        elif query_name == 'hosts_with_foxit':
+            cursor.execute("""
+                SELECT h.ip, h.hostname, h.os, si.value AS foxit_license_key
+                FROM hosts h
+                JOIN system_info si ON h.ip = si.ip
+                WHERE si.key = 'foxit_license_key' AND h.status = 'online'
+                ORDER BY h.ip
+            """)
+            
+        elif query_name == 'foxit_without_license':
+            cursor.execute("""
+                SELECT h.ip, h.hostname, h.os, 
+                       s.name AS foxit_product, 
+                       s.version AS foxit_version,
+                       s.path AS installation_path
+                FROM hosts h
+                JOIN installed_software s ON h.ip = s.ip
+                WHERE (s.name LIKE '%Foxit%' OR s.name LIKE '%PDF%Editor%')
+                AND h.ip NOT IN (
+                    SELECT ip 
+                    FROM system_info 
+                    WHERE key = 'foxit_license_key' AND value IS NOT NULL AND value != ''
+                )
+                AND h.status = 'online'
+                ORDER BY h.ip, s.name
+            """)
+            
+        elif query_name == 'foxit_all_installs':
+            cursor.execute("""
+                SELECT 
+                    h.ip, 
+                    h.hostname, 
+                    h.os, 
+                    s.name AS foxit_product, 
+                    s.version AS foxit_version,
+                    s.path AS installation_path,
+                    CASE 
+                        WHEN si.value IS NOT NULL AND si.value != '' THEN si.value
+                        ELSE 'No License Key'
+                    END AS license_key
+                FROM hosts h
+                JOIN installed_software s ON h.ip = s.ip
+                LEFT JOIN system_info si ON h.ip = si.ip AND si.key = 'foxit_license_key'
+                WHERE (s.name LIKE '%Foxit%' OR s.name LIKE '%PDF%Editor%')
+                AND h.status = 'online'
+                ORDER BY h.ip, s.name
+            """)
+            
+        elif query_name == 'hosts_by_ip':
+            # Handle IP/subnet/range/wildcard search
+            ip_search = params.get('ip_search', '')
+            where_clause, query_params = convert_wildcard_to_sql(ip_search)
+            
+            if where_clause:
+                query = f"""
+                    SELECT ip, hostname, os, mac_address, status, last_seen
                     FROM hosts
-                    WHERE status = 'online' AND 
-                          (os LIKE '%Windows%' OR os LIKE '%Microsoft%')
+                    WHERE {where_clause}
                     ORDER BY ip
-                """,
-                'params': []
-            },
-            'linux_hosts': {
-                'sql': """
-                    SELECT ip, hostname, os, mac_address, last_seen
-                    FROM hosts
-                    WHERE status = 'online' AND 
-                          (os LIKE '%Linux%' OR os LIKE '%Ubuntu%' OR os LIKE '%Debian%')
-                    ORDER BY ip
-                """,
-                'params': []
-            },
-            'hosts_with_admin_shares': {
-                'sql': """
-                    SELECT h.ip, h.hostname, h.os, s.share_name
+                """
+                cursor.execute(query, query_params)
+            else:
+                # If no valid search pattern, return empty result
+                cursor.execute("SELECT ip FROM hosts WHERE 1=0")
+                
+        elif query_name == 'hosts_by_os':
+            cursor.execute("""
+                SELECT ip, hostname, os, mac_address, status, last_seen
+                FROM hosts
+                WHERE status = 'online' AND os LIKE ?
+                ORDER BY ip
+            """, [params.get('os_filter', '%')])
+            
+        elif query_name == 'hosts_with_shares':
+            share_filter = params.get('share_name', '')
+            if share_filter:
+                cursor.execute("""
+                    SELECT DISTINCT h.ip, h.hostname, h.os, s.share_name
                     FROM hosts h
                     JOIN shares s ON h.ip = s.ip
-                    WHERE h.status = 'online' AND
-                          (s.share_name = 'C
-         OR s.share_name = 'ADMIN
-         OR s.share_name = 'IPC
-        )
+                    WHERE h.status = 'online' AND s.share_name LIKE ?
                     ORDER BY h.ip, s.share_name
-                """,
-                'params': []
-            }
-        }
-        
-        if query_name not in queries:
+                """, [share_filter])
+            else:
+                cursor.execute("""
+                    SELECT DISTINCT h.ip, h.hostname, h.os, 
+                           GROUP_CONCAT(s.share_name, ', ') as shares
+                    FROM hosts h
+                    JOIN shares s ON h.ip = s.ip
+                    WHERE h.status = 'online'
+                    GROUP BY h.ip, h.hostname, h.os
+                    ORDER BY h.ip
+                """)
+                
+        elif query_name == 'hosts_with_admin_shares':
+            cursor.execute("""
+                SELECT h.ip, h.hostname, h.os, s.share_name
+                FROM hosts h
+                JOIN shares s ON h.ip = s.ip
+                WHERE h.status = 'online' AND 
+                      (s.share_name = 'C$' OR s.share_name = 'ADMIN$' OR s.share_name = 'IPC$')
+                ORDER BY h.ip, s.share_name
+            """)
+            
+        elif query_name == 'windows_hosts':
+            cursor.execute("""
+                SELECT ip, hostname, os, mac_address, last_seen
+                FROM hosts
+                WHERE status = 'online' AND 
+                      (os LIKE '%Windows%' OR os LIKE '%Microsoft%')
+                ORDER BY ip
+            """)
+            
+        elif query_name == 'linux_hosts':
+            cursor.execute("""
+                SELECT ip, hostname, os, mac_address, last_seen
+                FROM hosts
+                WHERE status = 'online' AND 
+                      (os LIKE '%Linux%' OR os LIKE '%Ubuntu%' OR os LIKE '%Debian%' OR os LIKE '%Red Hat%' OR os LIKE '%CentOS%')
+                ORDER BY ip
+            """)
+            
+        elif query_name == 'recent_scans':
+            days = params.get('days', 7)
+            cutoff_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d %H:%M:%S')
+            cursor.execute("""
+                SELECT h.ip, h.hostname, h.os, h.status, h.last_seen
+                FROM hosts h
+                WHERE h.last_seen >= ?
+                ORDER BY h.last_seen DESC, h.ip
+            """, [cutoff_date])
+            
+        elif query_name == 'scan_sessions':
+            cursor.execute("""
+                SELECT id, start_time, end_time, target_range, hosts_total, hosts_online,
+                       (hosts_online * 100.0 / hosts_total) AS online_percentage,
+                       scan_type
+                FROM scan_sessions
+                ORDER BY start_time DESC
+            """)
+            
+        else:
             raise ValueError(f"Unknown predefined query: {query_name}")
         
-        query = queries[query_name]
-        cursor.execute(query['sql'], query['params'])
         results = cursor.fetchall()
         
         # Convert to list of dicts
