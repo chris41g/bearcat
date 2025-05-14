@@ -653,9 +653,10 @@ def main():
         }
         print(f"Switch MAC/VLAN lookup enabled for {args.switch_ip}")
     
-        if args.query:
-            params = (args.param,) if args.param else ()
-            results = query_database(conn, args.query, params)
+    # Handle query mode
+    if args.query:
+        params = (args.param,) if args.param else ()
+        results = query_database(conn, args.query, params)
         
         if not results:
             print(f"No results found for query: {args.query}")
