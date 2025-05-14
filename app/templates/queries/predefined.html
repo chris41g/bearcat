@@ -188,21 +188,44 @@
                     </h5>
                     
                     {% if results %}
-                    <button class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#exportModal">
-                        <i class="fas fa-file-export me-1"></i>Export CSV
-                    </button>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#exportModal">
+                            <i class="fas fa-file-export me-1"></i>Export CSV
+                        </button>
+                        {% if total_count and total_count > auto_csv_threshold %}
+                        <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#exportUnlimitedModal">
+                            <i class="fas fa-download me-1"></i>Export All {{ "{:,}".format(total_count) }} Records
+                        </button>
+                        {% endif %}
+                    </div>
                     {% endif %}
                 </div>
             </div>
             <div class="card-body">
                 {% if results %}
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <p class="mb-0 text-muted">{{ results|length }} result(s) found</p>
-                    {% if results|length > 50 %}
-                    <p class="mb-0 text-warning">
-                        <i class="fas fa-exclamation-triangle me-1"></i>
-                        Showing first 50 results. Use more specific criteria for complete results.
-                    </p>
+                    <div>
+                        {% if total_count %}
+                        <p class="mb-0 text-muted">
+                            <strong>{{ "{:,}".format(total_count) }}</strong> total result(s) found
+                            {% if is_truncated %}
+                            <span class="text-warning">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                (Showing first {{ "{:,}".format(max_display) }} for performance)
+                            </span>
+                            {% endif %}
+                        </p>
+                        {% else %}
+                        <p class="mb-0 text-muted">{{ "{:,}".format(results|length) }} result(s) found</p>
+                        {% endif %}
+                    </div>
+                    
+                    {% if is_truncated %}
+                    <div class="alert alert-info alert-sm mb-0 py-2">
+                        <i class="fas fa-info-circle me-1"></i>
+                        <strong>Large Result Set:</strong> 
+                        Use "Export All Records" to download the complete dataset.
+                    </div>
                     {% endif %}
                 </div>
                 
@@ -303,12 +326,38 @@
                     <input type="hidden" name="query_type" value="predefined">
                     <input type="hidden" name="query_data" value='{"key": "{{ query_name }}", "params": {}}'>
                     
-                    <p>Export the current query results to a CSV file.</p>
-                    <p class="text-muted small">{{ results|length }} record(s) will be exported.</p>
+                    <div class="mb-3">
+                        <h6>Export Options</h6>
+                        {% if total_count and total_count <= auto_csv_threshold %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Complete Export:</strong> All {{ "{:,}".format(total_count) }} records will be exported.
+                        </div>
+                        {% elif is_truncated %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Partial Export:</strong> This will export only the {{ "{:,}".format(results|length) }} records currently displayed.
+                        </div>
+                        <div class="alert alert-success">
+                            <i class="fas fa-download me-2"></i>
+                            <strong>For Complete Export:</strong> Use the "Export All {{ "{:,}".format(total_count) }} Records" button above the table.
+                        </div>
+                        {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            {{ "{:,}".format(results|length) }} record(s) will be exported.
+                        </div>
+                        {% endif %}
+                    </div>
                     
                     <div class="d-grid">
                         <button type="submit" class="btn btn-success">
-                            <i class="fas fa-file-csv me-2"></i>Export to CSV
+                            <i class="fas fa-file-csv me-2"></i>
+                            {% if is_truncated %}
+                            Export Displayed Records to CSV
+                            {% else %}
+                            Export to CSV
+                            {% endif %}
                         </button>
                     </div>
                 </form>
@@ -316,6 +365,42 @@
         </div>
     </div>
 </div>
+
+<!-- Export Unlimited Modal -->
+{% if total_count and total_count > auto_csv_threshold %}
+<div class="modal fade" id="exportUnlimitedModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">Export Complete Dataset</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form action="{{ url_for('queries.export_unlimited') }}" method="post">
+                    <input type="hidden" name="query_type" value="predefined">
+                    <input type="hidden" name="query_data" value='{"key": "{{ query_name }}", "params": {}}'>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Complete Export:</strong> This will export all {{ "{:,}".format(total_count) }} records in the dataset.
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-clock me-2"></i>
+                        <strong>Note:</strong> Large exports may take several minutes to complete.
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-download me-2"></i>Export All {{ "{:,}".format(total_count) }} Records
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endif %}
 {% endblock %}
 
