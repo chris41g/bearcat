@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS hosts (
     hostname TEXT,
     mac_address TEXT,
     vlan TEXT,
+    vlan TEXT,
     os TEXT,
     first_seen TIMESTAMP NOT NULL,
     last_seen TIMESTAMP NOT NULL
@@ -233,6 +234,10 @@ def insert_host_to_db(conn, cursor, host_info, session_id=None):
                     host_info['mac_address'],
                     host_info.get('vlan', ''),
                     host_info.get('vlan', ''),
+                    host_info.get('vlan', ''),
+                    host_info.get('vlan', ''),
+                    host_info.get('vlan', ''),
+                    host_info.get('vlan', ''),
                     host_info['os'],
                     current_time,
                     host_info['ip']
@@ -247,6 +252,8 @@ def insert_host_to_db(conn, cursor, host_info, session_id=None):
                     host_info['status'],
                     host_info['hostname'],
                     host_info['mac_address'],
+                    host_info.get('vlan', ''),
+                    host_info.get('vlan', ''),
                     host_info.get('vlan', ''),
                     host_info['os'],
                     current_time,
@@ -550,6 +557,8 @@ def scan_host(ip, full_scan=False, username=None, password=None, switch_config=N
         'hostname': '',
         'mac_address': '',
         'vlan': '',
+        'vlan': '',
+        'vlan': '',
         'os': '',
         'services': {},
         'shares': [],
@@ -625,6 +634,18 @@ def main():
     parser.add_argument('--switch-password', help='Password for switch authentication')
     parser.add_argument('--switch-secret', help='Enable password for switch (if required)')
     
+    # Switch configuration arguments
+    parser.add_argument('--switch-ip', help='IP address of managed switch for MAC/VLAN lookup')
+    parser.add_argument('--switch-username', help='Username for switch authentication')
+    parser.add_argument('--switch-password', help='Password for switch authentication')
+    parser.add_argument('--switch-secret', help='Enable password for switch (if required)')
+    
+    # Switch configuration arguments
+    parser.add_argument('--switch-ip', help='IP address of managed switch for MAC/VLAN lookup')
+    parser.add_argument('--switch-username', help='Username for switch authentication')
+    parser.add_argument('--switch-password', help='Password for switch authentication')
+    parser.add_argument('--switch-secret', help='Enable password for switch (if required)')
+    
     args = parser.parse_args()
     
     # Connect to the database
@@ -641,9 +662,9 @@ def main():
         }
         print(f"Switch MAC/VLAN lookup enabled for {args.switch_ip}")
     
-    if args.query:
-        params = (args.param,) if args.param else ()
-        results = query_database(conn, args.query, params)
+        if args.query:
+            params = (args.param,) if args.param else ()
+            results = query_database(conn, args.query, params)
         
         if not results:
             print(f"No results found for query: {args.query}")
@@ -1700,6 +1721,100 @@ def get_improved_hostname(ip, username=None, password=None):
 
 # MAC and VLAN functions from macscans.py
 def convert_mac_format(mac):
+    """
+    Convert MAC from xxxx.xxxx.xxxx to xx:xx:xx:xx:xx:xx format.
+    """
+    try:
+        mac = mac.replace(".", "").lower()
+        if len(mac) != 12:
+            return mac
+        return ":".join(mac[i:i+2] for i in range(0, 12, 2))
+    except Exception:
+        return mac
+
+def query_switch_for_mac_vlan(ip, switch_ip, username, password, secret=None):
+    """
+    Query a Cisco switch for MAC address and VLAN information for a specific IP.
+    Returns tuple of (mac_address, vlan) or (None, None) if not found.
+    """
+    try:
+        from netmiko import ConnectHandler
+    except ImportError:
+        print(f"{Colors.YELLOW}netmiko not available, skipping switch query{Colors.ENDC}")
+        return None, None
+    
+    switch = {
+        "device_type": "cisco_ios",
+        "ip": switch_ip,
+        "username": username,
+        "password": password,
+        "secret": secret or "",
+    }
+    
+    try:
+        connection = ConnectHandler(**switch)
+        if switch.get("secret"):
+            connection.enable()
+        
+        arp_output = connection.send_command(f"show ip arp {ip}")
+        arp_match = re.search(r"Internet\s+{}\s+\d+\s+([0-9a-fA-F.]+)\s+ARPA\s+(\S+)".format(ip), arp_output)
+        if not arp_match:
+            connection.send_command(f"ping {ip}")
+            arp_output = connection.send_command(f"show ip arp {ip}")
+            arp_match = re.search(r"Internet\s+{}\s+\d+\s+([0-9a-fA-F.]+)\s+ARPA\s+(\S+)".format(ip), arp_output)
+        
+        if arp_match:
+            arp_mac, arp_interface = arp_match.groups()
+            arp_mac_converted = convert_mac_format(arp_mac)
+            mac_lookup = connection.send_command(f"show mac address-table | include {arp_mac}")
+            
+            if mac_lookup:
+                for line in mac_lookup.splitlines():
+                    if arp_mac in line:
+                        parts = line.split()
+                        if len(parts) >= 4:
+                            vlan = parts[0]
+                            if vlan.isdigit():
+                                connection.disconnect()
+                                return arp_mac_converted, vlan
+            
+            connection.disconnect()
+            return arp_mac_converted, None
+        
+        connection.disconnect()
+        return None, None
+        
+    except Exception as e:
+        print(f"{Colors.RED}Error querying switch: {e}{Colors.ENDC}")
+        return None, None
+
+def get_mac_and_vlan(ip, switch_config=None):
+    """
+    Get MAC address and VLAN for an IP using multiple methods.
+    First tries switch query if configured, then falls back to local methods.
+    """
+    mac_address = ""
+    vlan = ""
+    
+    if switch_config and switch_config.get("enabled", False):
+        switch_mac, switch_vlan = query_switch_for_mac_vlan(
+            ip, 
+            switch_config["ip"], 
+            switch_config["username"], 
+            switch_config["password"],
+            switch_config.get("secret")
+        )
+        if switch_mac:
+            mac_address = switch_mac
+            vlan = switch_vlan or ""
+            print(f"{Colors.GREEN}Found MAC via switch: {mac_address} (VLAN {vlan}){Colors.ENDC}")
+            return mac_address, vlan
+    
+    mac_address = get_mac_address(ip)
+    return mac_address, vlan
+
+# MAC and VLAN functions from macscans.py
+def convert_mac_format(mac):
     """Convert MAC from xxxx.xxxx.xxxx to xx:xx:xx:xx:xx:xx format."""
     try:
         mac = mac.replace(".", "").lower()
@@ -1794,6 +1909,98 @@ def get_mac_and_vlan(ip, switch_config=None):
             hostname = netbios_name_match.group(1)
             print(f"{Colors.GREEN}Found NetBIOS name via nmap: {hostname}{Colors.ENDC}")
             return hostname
+
+# MAC and VLAN functions from macscans.py
+def convert_mac_format(mac):
+    """Convert MAC from xxxx.xxxx.xxxx to xx:xx:xx:xx:xx:xx format."""
+    try:
+        mac = mac.replace(".", "").lower()
+        if len(mac) != 12:
+            return mac
+        return ":".join(mac[i:i+2] for i in range(0, 12, 2))
+    except Exception:
+        return mac
+
+def query_switch_for_mac_vlan(ip, switch_ip, username, password, secret=None):
+    """
+    Query a Cisco switch for MAC address and VLAN information for a specific IP.
+    Returns tuple of (mac_address, vlan) or (None, None) if not found.
+    """
+    try:
+        from netmiko import ConnectHandler
+    except ImportError:
+        print(f"{Colors.YELLOW}netmiko not available, skipping switch query{Colors.ENDC}")
+        return None, None
+    
+    switch = {
+        "device_type": "cisco_ios",
+        "ip": switch_ip,
+        "username": username,
+        "password": password,
+        "secret": secret or "",
+    }
+    
+    try:
+        connection = ConnectHandler(**switch)
+        if switch.get("secret"):
+            connection.enable()
+        
+        arp_output = connection.send_command(f"show ip arp {ip}")
+        arp_match = re.search(r"Internet\s+{}\s+\d+\s+([0-9a-fA-F.]+)\s+ARPA\s+(\S+)".format(ip), arp_output)
+        if not arp_match:
+            connection.send_command(f"ping {ip}")
+            arp_output = connection.send_command(f"show ip arp {ip}")
+            arp_match = re.search(r"Internet\s+{}\s+\d+\s+([0-9a-fA-F.]+)\s+ARPA\s+(\S+)".format(ip), arp_output)
+        
+        if arp_match:
+            arp_mac, arp_interface = arp_match.groups()
+            arp_mac_converted = convert_mac_format(arp_mac)
+            mac_lookup = connection.send_command(f"show mac address-table | include {arp_mac}")
+            
+            if mac_lookup:
+                for line in mac_lookup.splitlines():
+                    if arp_mac in line:
+                        parts = line.split()
+                        if len(parts) >= 4:
+                            vlan = parts[0]
+                            if vlan.isdigit():
+                                connection.disconnect()
+                                return arp_mac_converted, vlan
+            
+            connection.disconnect()
+            return arp_mac_converted, None
+        
+        connection.disconnect()
+        return None, None
+        
+    except Exception as e:
+        print(f"{Colors.RED}Error querying switch: {e}{Colors.ENDC}")
+        return None, None
+
+def get_mac_and_vlan(ip, switch_config=None):
+    """
+    Get MAC address and VLAN for an IP using multiple methods.
+    First tries switch query if configured, then falls back to local methods.
+    """
+    mac_address = ""
+    vlan = ""
+    
+    if switch_config and switch_config.get("enabled", False):
+        switch_mac, switch_vlan = query_switch_for_mac_vlan(
+            ip, 
+            switch_config["ip"], 
+            switch_config["username"], 
+            switch_config["password"],
+            switch_config.get("secret")
+        )
+        if switch_mac:
+            mac_address = switch_mac
+            vlan = switch_vlan or ""
+            print(f"{Colors.GREEN}Found MAC via switch: {mac_address} (VLAN {vlan}){Colors.ENDC}")
+            return mac_address, vlan
+    
+    mac_address = get_mac_address(ip)
+    return mac_address, vlan
 
 # MAC and VLAN functions from macscans.py
 def convert_mac_format(mac):
@@ -1996,6 +2203,98 @@ def get_mac_and_vlan(ip, switch_config=None):
     
     mac_address = get_mac_address(ip)
     return mac_address, vlan
+
+# MAC and VLAN functions from macscans.py
+def convert_mac_format(mac):
+    """Convert MAC from xxxx.xxxx.xxxx to xx:xx:xx:xx:xx:xx format."""
+    try:
+        mac = mac.replace(".", "").lower()
+        if len(mac) != 12:
+            return mac
+        return ":".join(mac[i:i+2] for i in range(0, 12, 2))
+    except Exception:
+        return mac
+
+def query_switch_for_mac_vlan(ip, switch_ip, username, password, secret=None):
+    """
+    Query a Cisco switch for MAC address and VLAN information for a specific IP.
+    Returns tuple of (mac_address, vlan) or (None, None) if not found.
+    """
+    try:
+        from netmiko import ConnectHandler
+    except ImportError:
+        print(f"{Colors.YELLOW}netmiko not available, skipping switch query{Colors.ENDC}")
+        return None, None
+    
+    switch = {
+        "device_type": "cisco_ios",
+        "ip": switch_ip,
+        "username": username,
+        "password": password,
+        "secret": secret or "",
+    }
+    
+    try:
+        connection = ConnectHandler(**switch)
+        if switch.get("secret"):
+            connection.enable()
+        
+        arp_output = connection.send_command(f"show ip arp {ip}")
+        arp_match = re.search(r"Internet\s+{}\s+\d+\s+([0-9a-fA-F.]+)\s+ARPA\s+(\S+)".format(ip), arp_output)
+        if not arp_match:
+            connection.send_command(f"ping {ip}")
+            arp_output = connection.send_command(f"show ip arp {ip}")
+            arp_match = re.search(r"Internet\s+{}\s+\d+\s+([0-9a-fA-F.]+)\s+ARPA\s+(\S+)".format(ip), arp_output)
+        
+        if arp_match:
+            arp_mac, arp_interface = arp_match.groups()
+            arp_mac_converted = convert_mac_format(arp_mac)
+            mac_lookup = connection.send_command(f"show mac address-table | include {arp_mac}")
+            
+            if mac_lookup:
+                for line in mac_lookup.splitlines():
+                    if arp_mac in line:
+                        parts = line.split()
+                        if len(parts) >= 4:
+                            vlan = parts[0]
+                            if vlan.isdigit():
+                                connection.disconnect()
+                                return arp_mac_converted, vlan
+            
+            connection.disconnect()
+            return arp_mac_converted, None
+        
+        connection.disconnect()
+        return None, None
+        
+    except Exception as e:
+        print(f"{Colors.RED}Error querying switch: {e}{Colors.ENDC}")
+        return None, None
+
+def get_mac_and_vlan(ip, switch_config=None):
+    """
+    Get MAC address and VLAN for an IP using multiple methods.
+    First tries switch query if configured, then falls back to local methods.
+    """
+    mac_address = ""
+    vlan = ""
+    
+    if switch_config and switch_config.get("enabled", False):
+        switch_mac, switch_vlan = query_switch_for_mac_vlan(
+            ip, 
+            switch_config["ip"], 
+            switch_config["username"], 
+            switch_config["password"],
+            switch_config.get("secret")
+        )
+        if switch_mac:
+            mac_address = switch_mac
+            vlan = switch_vlan or ""
+            print(f"{Colors.GREEN}Found MAC via switch: {mac_address} (VLAN {vlan}){Colors.ENDC}")
+            return mac_address, vlan
+    
+    mac_address = get_mac_address(ip)
+    return mac_address, vlan
         except Exception as e:
             print(f"{Colors.RED}Error with nbtscan: {str(e)}{Colors.ENDC}")
     
@@ -2006,6 +2305,98 @@ def get_mac_and_vlan(ip, switch_config=None):
             if hostname and hostname != ip:
                 print(f"{Colors.GREEN}Found hostname via DNS: {hostname}{Colors.ENDC}")
                 return hostname
+
+# MAC and VLAN functions from macscans.py
+def convert_mac_format(mac):
+    """Convert MAC from xxxx.xxxx.xxxx to xx:xx:xx:xx:xx:xx format."""
+    try:
+        mac = mac.replace(".", "").lower()
+        if len(mac) != 12:
+            return mac
+        return ":".join(mac[i:i+2] for i in range(0, 12, 2))
+    except Exception:
+        return mac
+
+def query_switch_for_mac_vlan(ip, switch_ip, username, password, secret=None):
+    """
+    Query a Cisco switch for MAC address and VLAN information for a specific IP.
+    Returns tuple of (mac_address, vlan) or (None, None) if not found.
+    """
+    try:
+        from netmiko import ConnectHandler
+    except ImportError:
+        print(f"{Colors.YELLOW}netmiko not available, skipping switch query{Colors.ENDC}")
+        return None, None
+    
+    switch = {
+        "device_type": "cisco_ios",
+        "ip": switch_ip,
+        "username": username,
+        "password": password,
+        "secret": secret or "",
+    }
+    
+    try:
+        connection = ConnectHandler(**switch)
+        if switch.get("secret"):
+            connection.enable()
+        
+        arp_output = connection.send_command(f"show ip arp {ip}")
+        arp_match = re.search(r"Internet\s+{}\s+\d+\s+([0-9a-fA-F.]+)\s+ARPA\s+(\S+)".format(ip), arp_output)
+        if not arp_match:
+            connection.send_command(f"ping {ip}")
+            arp_output = connection.send_command(f"show ip arp {ip}")
+            arp_match = re.search(r"Internet\s+{}\s+\d+\s+([0-9a-fA-F.]+)\s+ARPA\s+(\S+)".format(ip), arp_output)
+        
+        if arp_match:
+            arp_mac, arp_interface = arp_match.groups()
+            arp_mac_converted = convert_mac_format(arp_mac)
+            mac_lookup = connection.send_command(f"show mac address-table | include {arp_mac}")
+            
+            if mac_lookup:
+                for line in mac_lookup.splitlines():
+                    if arp_mac in line:
+                        parts = line.split()
+                        if len(parts) >= 4:
+                            vlan = parts[0]
+                            if vlan.isdigit():
+                                connection.disconnect()
+                                return arp_mac_converted, vlan
+            
+            connection.disconnect()
+            return arp_mac_converted, None
+        
+        connection.disconnect()
+        return None, None
+        
+    except Exception as e:
+        print(f"{Colors.RED}Error querying switch: {e}{Colors.ENDC}")
+        return None, None
+
+def get_mac_and_vlan(ip, switch_config=None):
+    """
+    Get MAC address and VLAN for an IP using multiple methods.
+    First tries switch query if configured, then falls back to local methods.
+    """
+    mac_address = ""
+    vlan = ""
+    
+    if switch_config and switch_config.get("enabled", False):
+        switch_mac, switch_vlan = query_switch_for_mac_vlan(
+            ip, 
+            switch_config["ip"], 
+            switch_config["username"], 
+            switch_config["password"],
+            switch_config.get("secret")
+        )
+        if switch_mac:
+            mac_address = switch_mac
+            vlan = switch_vlan or ""
+            print(f"{Colors.GREEN}Found MAC via switch: {mac_address} (VLAN {vlan}){Colors.ENDC}")
+            return mac_address, vlan
+    
+    mac_address = get_mac_address(ip)
+    return mac_address, vlan
 
 # MAC and VLAN functions from macscans.py
 def convert_mac_format(mac):
@@ -2194,6 +2585,98 @@ def get_mac_and_vlan(ip, switch_config=None):
     
     mac_address = get_mac_address(ip)
     return mac_address, vlan
+
+# MAC and VLAN functions from macscans.py
+def convert_mac_format(mac):
+    """Convert MAC from xxxx.xxxx.xxxx to xx:xx:xx:xx:xx:xx format."""
+    try:
+        mac = mac.replace(".", "").lower()
+        if len(mac) != 12:
+            return mac
+        return ":".join(mac[i:i+2] for i in range(0, 12, 2))
+    except Exception:
+        return mac
+
+def query_switch_for_mac_vlan(ip, switch_ip, username, password, secret=None):
+    """
+    Query a Cisco switch for MAC address and VLAN information for a specific IP.
+    Returns tuple of (mac_address, vlan) or (None, None) if not found.
+    """
+    try:
+        from netmiko import ConnectHandler
+    except ImportError:
+        print(f"{Colors.YELLOW}netmiko not available, skipping switch query{Colors.ENDC}")
+        return None, None
+    
+    switch = {
+        "device_type": "cisco_ios",
+        "ip": switch_ip,
+        "username": username,
+        "password": password,
+        "secret": secret or "",
+    }
+    
+    try:
+        connection = ConnectHandler(**switch)
+        if switch.get("secret"):
+            connection.enable()
+        
+        arp_output = connection.send_command(f"show ip arp {ip}")
+        arp_match = re.search(r"Internet\s+{}\s+\d+\s+([0-9a-fA-F.]+)\s+ARPA\s+(\S+)".format(ip), arp_output)
+        if not arp_match:
+            connection.send_command(f"ping {ip}")
+            arp_output = connection.send_command(f"show ip arp {ip}")
+            arp_match = re.search(r"Internet\s+{}\s+\d+\s+([0-9a-fA-F.]+)\s+ARPA\s+(\S+)".format(ip), arp_output)
+        
+        if arp_match:
+            arp_mac, arp_interface = arp_match.groups()
+            arp_mac_converted = convert_mac_format(arp_mac)
+            mac_lookup = connection.send_command(f"show mac address-table | include {arp_mac}")
+            
+            if mac_lookup:
+                for line in mac_lookup.splitlines():
+                    if arp_mac in line:
+                        parts = line.split()
+                        if len(parts) >= 4:
+                            vlan = parts[0]
+                            if vlan.isdigit():
+                                connection.disconnect()
+                                return arp_mac_converted, vlan
+            
+            connection.disconnect()
+            return arp_mac_converted, None
+        
+        connection.disconnect()
+        return None, None
+        
+    except Exception as e:
+        print(f"{Colors.RED}Error querying switch: {e}{Colors.ENDC}")
+        return None, None
+
+def get_mac_and_vlan(ip, switch_config=None):
+    """
+    Get MAC address and VLAN for an IP using multiple methods.
+    First tries switch query if configured, then falls back to local methods.
+    """
+    mac_address = ""
+    vlan = ""
+    
+    if switch_config and switch_config.get("enabled", False):
+        switch_mac, switch_vlan = query_switch_for_mac_vlan(
+            ip, 
+            switch_config["ip"], 
+            switch_config["username"], 
+            switch_config["password"],
+            switch_config.get("secret")
+        )
+        if switch_mac:
+            mac_address = switch_mac
+            vlan = switch_vlan or ""
+            print(f"{Colors.GREEN}Found MAC via switch: {mac_address} (VLAN {vlan}){Colors.ENDC}")
+            return mac_address, vlan
+    
+    mac_address = get_mac_address(ip)
+    return mac_address, vlan
        
 def get_mac_address(ip):
     """
@@ -2264,7 +2747,19 @@ def format_scan_result(host_info, verbose=False):
         if host_info['hostname'] and host_info['hostname'] != host_info['ip']:
             output.append(f"  Hostname: {Colors.BLUE}{host_info['hostname']}{Colors.ENDC}")
         
-                if host_info['mac_address']:
+                                if host_info['mac_address']:
+            mac_display = f"  MAC: {Colors.YELLOW}{host_info['mac_address']}{Colors.ENDC}"
+            if host_info.get('vlan'):
+                mac_display += f" (VLAN {host_info['vlan']})"
+            output.append(mac_display)
+        
+if host_info['mac_address']:
+            mac_display = f"  MAC: {Colors.YELLOW}{host_info['mac_address']}{Colors.ENDC}"
+            if host_info.get('vlan'):
+                mac_display += f" (VLAN {host_info['vlan']})"
+            output.append(mac_display)
+        
+if host_info['mac_address']:
             mac_display = f"  MAC: {Colors.YELLOW}{host_info['mac_address']}{Colors.ENDC}"
             if host_info.get('vlan'):
                 mac_display += f" (VLAN {host_info['vlan']})"
