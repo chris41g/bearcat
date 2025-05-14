@@ -31,3 +31,4 @@ net*.db*
 
 venv/
 macscans.py
+apply_mac_vlan_changes.py
