@@ -35,25 +35,53 @@ function initDashboardCharts(chartData) {
         return;
     }
     
-    // VLAN Distribution Chart
+    // VLAN Distribution Bar Chart
     const vlanCtx = document.getElementById('vlanDistributionChart');
     if (vlanCtx && chartData.vlan_distribution.labels.length > 0) {
         vlanChart = new Chart(vlanCtx, {
-            type: 'doughnut',
+            type: 'bar',
             data: {
                 labels: chartData.vlan_distribution.labels,
                 datasets: [{
+                    label: 'Host Count',
                     data: chartData.vlan_distribution.counts,
-                    backgroundColor: bearcatColors.chartColors,
+                    backgroundColor: bearcatColors.primary,
+                    borderColor: bearcatColors.secondary,
                     borderWidth: 1
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1,
+                            precision: 0
+                        },
+                        title: {
+                            display: true,
+                            text: 'Number of Hosts'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'VLAN'
+                        }
+                    }
+                },
                 plugins: {
                     legend: {
-                        position: 'right'
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.label}: ${context.parsed.y} hosts`;
+                            }
+                        }
                     }
                 }
             }
@@ -62,7 +90,7 @@ function initDashboardCharts(chartData) {
         console.warn("No VLAN distribution data available or canvas element not found");
     }
     
-    // OS Distribution Chart
+    // OS Distribution Chart (keeping as doughnut)
     const osCtx = document.getElementById('osDistributionChart');
     if (osCtx && chartData.os_distribution.labels.length > 0) {
         osChart = new Chart(osCtx, {

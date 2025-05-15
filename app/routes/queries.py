@@ -921,9 +921,10 @@ def run_predefined_query(query_name, params=None, limit_for_display=True):
             vlan = params.get('vlan', '')
             if vlan:
                 cursor.execute("""
-                    SELECT COUNT(*)
+                    SELECT ip, hostname, os, mac_address, vlan, last_seen
                     FROM hosts
                     WHERE status = 'online' AND vlan = ?
+                    ORDER BY ip
                 """, [vlan])
             else:
                 cursor.execute("SELECT COUNT(*) FROM hosts WHERE 1=0")
@@ -948,6 +949,18 @@ def run_predefined_query(query_name, params=None, limit_for_display=True):
                 FROM scan_sessions
                 ORDER BY start_time DESC{limit_clause}
             """)
+        
+        elif query_name == 'hosts_by_vlan':
+            vlan = params.get('vlan', '')
+            if vlan:
+                cursor.execute(f"""
+                    SELECT ip, hostname, os, mac_address, vlan, last_seen
+                    FROM hosts
+                    WHERE status = 'online' AND vlan = ?
+                    ORDER BY ip{limit_clause}
+                """, [vlan])
+            else:
+                cursor.execute("SELECT ip, hostname, os, mac_address, vlan, last_seen FROM hosts WHERE 1=0")
             
         else:
             raise ValueError(f"Unknown predefined query: {query_name}")
