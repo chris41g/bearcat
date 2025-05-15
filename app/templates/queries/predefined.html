@@ -68,6 +68,13 @@
                             <div class="form-text">Enter partial share name to search for</div>
                         </div>
                         
+                        <!-- VLAN parameter -->
+                        <div id="vlan_param" class="mb-3 param-field" style="display: none;">
+                            {{ form.vlan.label(class="form-label") }}
+                            {{ form.vlan(class="form-control", placeholder="e.g., 10, 100, 200") }}
+                            <div class="form-text">Enter VLAN number to search for</div>
+                        </div>
+                        
                         <!-- Days parameter -->
                         <div id="days_param" class="mb-3 param-field" style="display: none;">
                             {{ form.days.label(class="form-label") }}
@@ -437,6 +444,9 @@
                         break;
                     case 'hosts_with_shares':
                         document.getElementById('share_name_param').style.display = 'block';
+                        break;
+                    case 'hosts_by_vlan':
+                        document.getElementById('vlan_param').style.display = 'block';
                         break;
                     case 'recent_scans':
                         document.getElementById('days_param').style.display = 'block';

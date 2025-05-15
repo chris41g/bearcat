@@ -77,6 +77,9 @@ def predefined():
             params['os_filter'] = f'%{form.os_filter.data}%'
         elif query_name == 'hosts_with_shares' and form.share_name.data:
             params['share_name'] = f'%{form.share_name.data}%'
+        elif query_name == 'hosts_by_vlan' and form.vlan.data:
+            params['vlan'] = form.vlan.data
+            params['share_name'] = f'%{form.share_name.data}%'
         elif query_name == 'recent_scans' and form.days.data:
             params['days'] = form.days.data
         
@@ -661,6 +664,29 @@ def get_query_count(query_name, params=None):
                 WHERE h.last_seen >= ?
             """, [cutoff_date])
             
+        elif query_name == 'hosts_by_vlan':
+            vlan = params.get('vlan', '')
+            if vlan:
+                cursor.execute("""
+                    SELECT COUNT(*)
+                    FROM hosts
+                    WHERE status = 'online' AND vlan = ?
+                """, [vlan])
+            else:
+                cursor.execute("SELECT COUNT(*) FROM hosts WHERE 1=0")
+        
+        elif query_name == 'hosts_by_vlan':
+            vlan = params.get('vlan', '')
+            if vlan:
+                cursor.execute(f"""
+                    SELECT ip, hostname, os, mac_address, vlan, last_seen
+                    FROM hosts
+                    WHERE status = 'online' AND vlan = ?
+                    ORDER BY ip{limit_clause}
+                """, [vlan])
+            else:
+                cursor.execute("SELECT ip FROM hosts WHERE 1=0")
+        
         elif query_name == 'scan_sessions':
             cursor.execute("SELECT COUNT(*) FROM scan_sessions")
             
@@ -891,6 +917,29 @@ def run_predefined_query(query_name, params=None, limit_for_display=True):
                 ORDER BY h.last_seen DESC, h.ip{limit_clause}
             """, [cutoff_date])
             
+        elif query_name == 'hosts_by_vlan':
+            vlan = params.get('vlan', '')
+            if vlan:
+                cursor.execute("""
+                    SELECT COUNT(*)
+                    FROM hosts
+                    WHERE status = 'online' AND vlan = ?
+                """, [vlan])
+            else:
+                cursor.execute("SELECT COUNT(*) FROM hosts WHERE 1=0")
+        
+        elif query_name == 'hosts_by_vlan':
+            vlan = params.get('vlan', '')
+            if vlan:
+                cursor.execute(f"""
+                    SELECT ip, hostname, os, mac_address, vlan, last_seen
+                    FROM hosts
+                    WHERE status = 'online' AND vlan = ?
+                    ORDER BY ip{limit_clause}
+                """, [vlan])
+            else:
+                cursor.execute("SELECT ip FROM hosts WHERE 1=0")
+        
         elif query_name == 'scan_sessions':
             cursor.execute(f"""
                 SELECT id, start_time, end_time, target_range, hosts_total, hosts_online,

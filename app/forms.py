@@ -89,6 +89,7 @@ class QueryForm(FlaskForm):
                                 ('hosts_with_admin_shares', 'Hosts with Admin Shares'),
                                 ('windows_hosts', 'Windows Hosts Only'),
                                 ('linux_hosts', 'Linux Hosts Only'),
+                                ('hosts_by_vlan', 'Hosts by VLAN'),
                                 ('recent_scans', 'Recent Scan Results'),
                                 ('scan_sessions', 'Scan Session History')
                             ],
@@ -110,6 +111,9 @@ class QueryForm(FlaskForm):
     share_name = StringField('Share Name (partial match)', validators=[Optional(), Length(max=100)])
     
     # Days parameter for recent scans
+    
+    # VLAN parameter
+    vlan = StringField('VLAN Number', validators=[Optional(), Length(max=10)])
     days = IntegerField('Days (for recent scans)', default=7, validators=[Optional(), NumberRange(min=1, max=365)])
     
     submit = SubmitField('Run Query')
