@@ -735,7 +735,7 @@ def run_predefined_query(query_name, params=None, limit_for_display=True):
         # Define predefined queries for new schema
         if query_name == 'online_hosts':
             cursor.execute(f"""
-                SELECT ip, hostname, os, mac_address, last_seen
+                SELECT ip, hostname, os, mac_address, vlan, last_seen
                 FROM hosts 
                 WHERE status = 'online'
                 ORDER BY ip{limit_clause}
@@ -865,7 +865,7 @@ def run_predefined_query(query_name, params=None, limit_for_display=True):
             
         elif query_name == 'windows_hosts':
             cursor.execute(f"""
-                SELECT ip, hostname, os, mac_address, last_seen
+                SELECT ip, hostname, os, mac_address, vlan, last_seen
                 FROM hosts
                 WHERE status = 'online' AND 
                       (os LIKE '%Windows%' OR os LIKE '%Microsoft%')
@@ -874,7 +874,7 @@ def run_predefined_query(query_name, params=None, limit_for_display=True):
             
         elif query_name == 'linux_hosts':
             cursor.execute(f"""
-                SELECT ip, hostname, os, mac_address, last_seen
+                SELECT ip, hostname, os, mac_address, vlan, last_seen
                 FROM hosts
                 WHERE status = 'online' AND 
                       (os LIKE '%Linux%' OR os LIKE '%Ubuntu%' OR os LIKE '%Debian%' OR os LIKE '%Red Hat%' OR os LIKE '%CentOS%')

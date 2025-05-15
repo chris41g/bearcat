@@ -145,63 +145,46 @@ def get_db_stats():
         }
         
 def get_chart_data():
-    """Get data for dashboard charts with meaningful time series."""
+    """Get data for dashboard charts with VLAN distribution."""
     try:
         conn = sqlite3.connect(current_app.config['DATABASE_PATH'])
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
-        # Check if we have recent scan_history data
+        # Get VLAN distribution from current online hosts
         cursor.execute("""
-            SELECT COUNT(*) as count 
-            FROM scan_history 
-            WHERE scan_time >= datetime('now', '-30 days')
+            SELECT 
+                CASE 
+                    WHEN vlan IS NULL OR vlan = '' THEN 'No VLAN'
+                    ELSE 'VLAN ' || vlan
+                END as vlan_label,
+                COUNT(*) as count
+            FROM hosts
+            WHERE status = 'online'
+            GROUP BY vlan_label
+            HAVING count > 0
+            ORDER BY count DESC
         """)
-        history_count = cursor.fetchone()['count']
         
-        current_app.logger.info(f"Scan history entries in last 30 days: {history_count}")
+        vlan_data = cursor.fetchall()
+        vlan_labels = []
+        vlan_counts = []
         
-        # If we have scan history, use it to show trends
-        if history_count > 0:
-            cursor.execute("""
-                SELECT 
-                    DATE(scan_time) as scan_date,
-                    COUNT(DISTINCT ip) as total_scanned,
-                    SUM(CASE WHEN status = 'online' THEN 1 ELSE 0 END) as online_hosts
-                FROM scan_history 
-                WHERE scan_time >= datetime('now', '-30 days')
-                GROUP BY DATE(scan_time)
-                ORDER BY scan_date
-                LIMIT 30
-            """)
-            
-            daily_data = cursor.fetchall()
-            
-            labels = []
-            total_hosts = []
-            online_hosts = []
-            percentages = []
-            
-            for row in daily_data:
-                date_obj = datetime.strptime(row['scan_date'], '%Y-%m-%d')
-                labels.append(date_obj.strftime('%m/%d'))
-                total_hosts.append(row['total_scanned'])
-                online_hosts.append(row['online_hosts'])
-                percentage = (row['online_hosts'] / row['total_scanned'] * 100) if row['total_scanned'] > 0 else 0
-                percentages.append(percentage)
+        if vlan_data:
+            for vlan in vlan_data:
+                vlan_labels.append(vlan['vlan_label'])
+                vlan_counts.append(vlan['count'])
         else:
-            # Fallback: Show current status only
-            cursor.execute("""
-                SELECT COUNT(*) as total,
-                       SUM(CASE WHEN status = 'online' THEN 1 ELSE 0 END) as online
-                FROM hosts
-            """)
-            current_status = cursor.fetchone()
+            # Check if there are any hosts at all
+            cursor.execute("SELECT COUNT(*) as count FROM hosts WHERE status = 'online'")
+            online_count = cursor.fetchone()['count']
             
-            labels = ['Current Status']
-            total_hosts = [current_status['total']]
-            online_hosts = [current_status['online']]
-            percentages = [(current_status['online'] / current_status['total'] * 100) if current_status['total'] > 0 else 0]
+            if online_count > 0:
+                vlan_labels = ['No VLAN Data']
+                vlan_counts = [online_count]
+            else:
+                vlan_labels = ['No Online Hosts']
+                vlan_counts = [1]
         
         # Get OS distribution from current online hosts
         cursor.execute("""
@@ -246,11 +229,9 @@ def get_chart_data():
         conn.close()
         
         result = {
-            'sessions': {
-                'labels': labels,
-                'total_hosts': total_hosts,
-                'online_hosts': online_hosts,
-                'percentages': percentages
+            'vlan_distribution': {
+                'labels': vlan_labels,
+                'counts': vlan_counts
             },
             'os_distribution': {
                 'labels': os_labels,
@@ -259,8 +240,7 @@ def get_chart_data():
         }
         
         # Log the result for debugging
-        current_app.logger.info(f"Chart data labels: {labels}")
-        current_app.logger.info(f"Online hosts: {online_hosts}")
+        current_app.logger.info(f"VLAN distribution: {dict(zip(vlan_labels, vlan_counts))}")
         current_app.logger.info(f"OS distribution: {dict(zip(os_labels, os_counts))}")
         
         return result
@@ -272,11 +252,9 @@ def get_chart_data():
         
         # Return safe default data
         return {
-            'sessions': {
-                'labels': ['Error'],
-                'total_hosts': [0],
-                'online_hosts': [0],
-                'percentages': [0]
+            'vlan_distribution': {
+                'labels': ['Error Loading Data'],
+                'counts': [1]
             },
             'os_distribution': {
                 'labels': ['Error Loading Data'],

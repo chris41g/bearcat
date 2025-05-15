@@ -39,7 +39,13 @@
                     <tr>
                         <th>MAC Address</th>
                         <td>{{ host.mac_address or '-' }}</td>
+                                        <tr>
+                        <th>VLAN</th>
+                        <td>
+                            {% if host.vlan %}<span class="badge bg-info">VLAN {{ host.vlan }}</span>{% else %}<span class="text-muted">No VLAN</span>{% endif %}
+                        </td>
                     </tr>
+</tr>
                     <tr>
                         <th>Operating System</th>
                         <td>{{ host.os or 'Unknown' }}</td>
