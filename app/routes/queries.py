@@ -714,6 +714,9 @@ def get_custom_query_count(sql_query):
             if cmd in sql_lower:
                 raise ValueError(f"SQL query contains forbidden command: {cmd}")
         
+        # Remove any trailing semicolons that could cause syntax errors
+        sql_query = sql_query.rstrip(';').strip()
+        
         # Wrap query in COUNT
         count_query = f"SELECT COUNT(*) FROM ({sql_query})"
         
@@ -734,7 +737,6 @@ def get_custom_query_count(sql_query):
             return len(results)
         except:
             return 0
-
 def run_predefined_query(query_name, params=None, limit_for_display=True):
     """
     Execute a predefined query against the database.

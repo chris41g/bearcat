@@ -120,10 +120,19 @@
                             <div class="accordion-body">
                                 <ul class="list-unstyled">
                                     <li><strong>All Online Hosts:</strong> Shows all hosts currently online</li>
-                                    <li><strong>Search by IP/Subnet/Range:</strong> Find hosts using IP addresses, subnets, ranges, or wildcards</li>
-                                    <li><strong>Hosts by OS:</strong> Filter hosts by operating system</li>
-                                    <li><strong>Windows/Linux Hosts:</strong> Show hosts running specific OS types</li>
-                                    <li><strong>Recent Scans:</strong> Show hosts scanned within a specified number of days</li>
+                                    <li><strong>Search by IP/Subnet/Range:</strong> Advanced search supporting:
+                                        <ul style="margin-left: 20px; font-size: 0.9em;">
+                                            <li>Single IP: <code>192.168.1.100</code></li>
+                                            <li>CIDR notation: <code>192.168.1.0/24</code></li>
+                                            <li>IP ranges: <code>192.168.1.1-192.168.1.254</code></li>
+                                            <li>Wildcards: <code>192.168.1.*</code> or <code>192.168.1.1??</code></li>
+                                        </ul>
+                                    </li>
+                                    <li><strong>Hosts by Operating System:</strong> Filter hosts by OS (partial match)</li>
+                                    <li><strong>Windows Hosts Only:</strong> Show only Windows machines</li>
+                                    <li><strong>Linux Hosts Only:</strong> Show only Linux distributions</li>
+                                    <li><strong>Hosts by VLAN:</strong> Find hosts in specific VLANs for network segmentation analysis</li>
+                                    <li><strong>Recent Scan Results:</strong> Show hosts scanned within specified days</li>
                                 </ul>
                             </div>
                         </div>
@@ -142,6 +151,8 @@
                                     <li><strong>Hosts with Network Shares:</strong> Show hosts with SMB/CIFS shares</li>
                                     <li><strong>Hosts with Admin Shares:</strong> Find hosts with C$, ADMIN$, or IPC$ shares</li>
                                 </ul>
+                                <div class="alert alert-info mt-2" style="font-size: 0.85em;">
+                                    <strong>Note:</strong> These queries help identify potential security exposures and file server locations.</div>
                             </div>
                         </div>
                     </div>
@@ -155,10 +166,18 @@
                         <div id="collapseSoftware" class="accordion-collapse collapse" aria-labelledby="softwareQueries" data-bs-parent="#queryHelp">
                             <div class="accordion-body">
                                 <ul class="list-unstyled">
-                                    <li><strong>Hosts with Specific Software:</strong> Find hosts with particular software installed</li>
-                                    <li><strong>Hosts with Foxit License:</strong> Show hosts with Foxit PDF license keys (original query)</li>
-                                    <li><strong>Foxit Installs Without License:</strong> Find Foxit installations without license keys (likely subscriptions)</li>
-                                    <li><strong>All Foxit Installs:</strong> Show all Foxit installations regardless of license status</li>
+                                    <li><strong>Hosts with Specific Software:</strong> Find hosts with particular software installed (partial name matching)</li>
+                                    <li><strong>Hosts with Foxit License:</strong> Show hosts with Foxit PDF license keys</li>
+                                    <li><strong>Foxit Installs Without License:</strong> Find Foxit installations without license keys
+                                        <div style="margin-left: 20px; font-size: 0.9em; color: #666;">
+                                            <em>Useful for identifying subscription-based installations or unlicensed copies</em>
+                                        </div>
+                                    </li>
+                                    <li><strong>All Foxit Installs:</strong> Complete Foxit inventory showing both licensed and unlicensed installations
+                                        <div style="margin-left: 20px; font-size: 0.9em; color: #666;">
+                                            <em>Provides complete overview for license compliance auditing</em>
+                                        </div>
+                                    </li>
                                 </ul>
                             </div>
                         </div>
@@ -173,7 +192,13 @@
                         <div id="collapseScan" class="accordion-collapse collapse" aria-labelledby="scanQueries" data-bs-parent="#queryHelp">
                             <div class="accordion-body">
                                 <ul class="list-unstyled">
-                                    <li><strong>Scan Session History:</strong> View all scan sessions with statistics</li>
+                                    <li><strong>Scan Session History:</strong> View all scan sessions with statistics including:
+                                        <ul style="margin-left: 20px; font-size: 0.9em;">
+                                            <li>Start and end times</li>
+                                            <li>Target ranges scanned</li>
+                                            <li>Success rates and online percentages</li>
+                                        </ul>
+                                    </li>
                                 </ul>
                             </div>
                         </div>

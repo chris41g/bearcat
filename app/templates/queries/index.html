@@ -43,6 +43,14 @@
                                         Linux hosts only
                                     </li>
                                     <li class="list-group-item">
+                                        <i class="fas fa-network-wired text-info me-1" style="font-size: 0.7em;"></i>
+                                        Hosts by VLAN
+                                    </li>
+                                    <li class="list-group-item">
+                                        <i class="fas fa-search text-primary me-1" style="font-size: 0.7em;"></i>
+                                        Search by IP/Subnet/Range with wildcards
+                                    </li>
+                                    <li class="list-group-item">
                                         <i class="fas fa-clock text-danger me-1" style="font-size: 0.7em;"></i>
                                         Recently scanned hosts
                                     </li>
@@ -101,6 +109,14 @@
                                     <li class="list-group-item">
                                         <i class="fas fa-file-alt text-primary me-1" style="font-size: 0.7em;"></i>
                                         All Foxit installations
+                                    </li>
+                                    <li class="list-group-item">
+                                        <i class="fas fa-exclamation-triangle text-warning me-1" style="font-size: 0.7em;"></i>
+                                        Foxit installs without licenses
+                                    </li>
+                                    <li class="list-group-item">
+                                        <i class="fas fa-clipboard-list text-info me-1" style="font-size: 0.7em;"></i>
+                                        Complete Foxit inventory (all installs)
                                     </li>
                                 </ul>
                             </div>
@@ -227,13 +243,14 @@
                             <div class="card-body">
                                 <h6 class="card-title">
                                     <i class="fas fa-search text-primary me-1"></i>
-                                    Find Specific Hosts
+                                    Enhanced Host Search
                                 </h6>
                                 <p class="card-text small">Use the "Search by IP/Subnet/Range" query to find:</p>
                                 <ul class="small">
                                     <li><code>192.168.1.*</code> - All hosts in subnet</li>
                                     <li><code>10.0.0.0/8</code> - CIDR notation</li>
                                     <li><code>172.16.1.1-172.16.1.50</code> - IP range</li>
+                                    <li><code>192.168.1.*</code> - Wildcard patterns</li>
                                 </ul>
                             </div>
                         </div>
@@ -268,6 +285,8 @@
                                     <li>Hosts with admin shares</li>
                                     <li>Windows hosts without patches</li>
                                     <li>Open administrative ports</li>
+                                    <li><strong>NEW:</strong> Foxit license compliance</li>
+                                    <li><strong>NEW:</strong> VLAN segmentation analysis</li>
                                 </ul>
                             </div>
                         </div>

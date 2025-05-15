@@ -70,13 +70,21 @@
                 <div class="accordion" id="schemaAccordion">
                     <div class="accordion-item">
                         <h2 class="accordion-header" id="headingHosts">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseHosts" aria-expanded="false" aria-controls="collapseHosts">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseHosts" aria-expanded="true" aria-controls="collapseHosts">
                                 hosts
                             </button>
                         </h2>
-                        <div id="collapseHosts" class="accordion-collapse collapse" aria-labelledby="headingHosts" data-bs-parent="#schemaAccordion">
+                        <div id="collapseHosts" class="accordion-collapse collapse show" aria-labelledby="headingHosts" data-bs-parent="#schemaAccordion">
                             <div class="accordion-body">
-                                <code>ip, status, hostname, mac_address, os, first_seen, last_seen</code>
+                                <strong>Primary Table:</strong> Stores unique host information<br>
+                                <code>ip</code> (PRIMARY KEY): IP address<br>
+                                <code>status</code>: online/offline<br>
+                                <code>hostname</code>: Resolved hostname<br>
+                                <code>mac_address</code>: MAC address<br>
+                                <code>vlan</code>: VLAN number <span class="badge bg-success">NEW</span><br>
+                                <code>os</code>: Operating system<br>
+                                <code>first_seen</code>: First discovery timestamp<br>
+                                <code>last_seen</code>: Most recent scan timestamp
                             </div>
                         </div>
                     </div>
@@ -89,7 +97,12 @@
                         </h2>
                         <div id="collapseServices" class="accordion-collapse collapse" aria-labelledby="headingServices" data-bs-parent="#schemaAccordion">
                             <div class="accordion-body">
-                                <code>id, ip, port, service_name, last_updated</code>
+                                <strong>Service Information:</strong> Open ports and services<br>
+                                <code>id</code>: Auto-increment ID<br>
+                                <code>ip</code>: Host IP (foreign key to hosts.ip)<br>
+                                <code>port</code>: Port number<br>
+                                <code>service_name</code>: Service name/description<br>
+                                <code>last_updated</code>: Last scan timestamp
                             </div>
                         </div>
                     </div>
@@ -102,7 +115,11 @@
                         </h2>
                         <div id="collapseShares" class="accordion-collapse collapse" aria-labelledby="headingShares" data-bs-parent="#schemaAccordion">
                             <div class="accordion-body">
-                                <code>id, ip, share_name, last_updated</code>
+                                <strong>Network Shares:</strong> SMB/CIFS shares<br>
+                                <code>id</code>: Auto-increment ID<br>
+                                <code>ip</code>: Host IP (foreign key to hosts.ip)<br>
+                                <code>share_name</code>: Share name (e.g., C$, SYSVOL)<br>
+                                <code>last_updated</code>: Last scan timestamp
                             </div>
                         </div>
                     </div>
@@ -115,7 +132,12 @@
                         </h2>
                         <div id="collapseSysInfo" class="accordion-collapse collapse" aria-labelledby="headingSysInfo" data-bs-parent="#schemaAccordion">
                             <div class="accordion-body">
-                                <code>id, ip, key, value, last_updated</code>
+                                <strong>System Information:</strong> Key-value pairs for system data<br>
+                                <code>id</code>: Auto-increment ID<br>
+                                <code>ip</code>: Host IP (foreign key to hosts.ip)<br>
+                                <code>key</code>: Information key (e.g., 'foxit_license_key')<br>
+                                <code>value</code>: Information value<br>
+                                <code>last_updated</code>: Last scan timestamp
                             </div>
                         </div>
                     </div>
@@ -128,7 +150,13 @@
                         </h2>
                         <div id="collapseSoftware" class="accordion-collapse collapse" aria-labelledby="headingSoftware" data-bs-parent="#schemaAccordion">
                             <div class="accordion-body">
-                                <code>id, ip, name, version, path, last_updated</code>
+                                <strong>Installed Software:</strong> Software inventory from Windows hosts<br>
+                                <code>id</code>: Auto-increment ID<br>
+                                <code>ip</code>: Host IP (foreign key to hosts.ip)<br>
+                                <code>name</code>: Software name<br>
+                                <code>version</code>: Software version<br>
+                                <code>path</code>: Installation path<br>
+                                <code>last_updated</code>: Last scan timestamp
                             </div>
                         </div>
                     </div>
@@ -141,7 +169,13 @@
                         </h2>
                         <div id="collapseRunSvc" class="accordion-collapse collapse" aria-labelledby="headingRunSvc" data-bs-parent="#schemaAccordion">
                             <div class="accordion-body">
-                                <code>id, ip, name, display_name, status, last_updated</code>
+                                <strong>Running Services:</strong> Windows services status<br>
+                                <code>id</code>: Auto-increment ID<br>
+                                <code>ip</code>: Host IP (foreign key to hosts.ip)<br>
+                                <code>name</code>: Service name<br>
+                                <code>display_name</code>: Human-readable service name<br>
+                                <code>status</code>: Service status (Running/Stopped/etc.)<br>
+                                <code>last_updated</code>: Last scan timestamp
                             </div>
                         </div>
                     </div>
@@ -154,7 +188,14 @@
                         </h2>
                         <div id="collapseSessions" class="accordion-collapse collapse" aria-labelledby="headingSessions" data-bs-parent="#schemaAccordion">
                             <div class="accordion-body">
-                                <code>id, start_time, end_time, target_range, hosts_total, hosts_online, scan_type</code>
+                                <strong>Scan Sessions:</strong> Individual scan operations<br>
+                                <code>id</code>: Session ID<br>
+                                <code>start_time</code>: Scan start timestamp<br>
+                                <code>end_time</code>: Scan completion timestamp<br>
+                                <code>target_range</code>: Target description<br>
+                                <code>hosts_total</code>: Total hosts scanned<br>
+                                <code>hosts_online</code>: Hosts found online<br>
+                                <code>scan_type</code>: Basic or Full scan
                             </div>
                         </div>
                     </div>
@@ -167,7 +208,56 @@
                         </h2>
                         <div id="collapseHistory" class="accordion-collapse collapse" aria-labelledby="headingHistory" data-bs-parent="#schemaAccordion">
                             <div class="accordion-body">
-                                <code>id, ip, status, scan_time, session_id</code>
+                                <strong>Scan History:</strong> Historical scan results per host<br>
+                                <code>id</code>: Auto-increment ID<br>
+                                <code>ip</code>: Host IP (foreign key to hosts.ip)<br>
+                                <code>status</code>: Status at scan time<br>
+                                <code>scan_time</code>: When scanned<br>
+                                <code>session_id</code>: Associated scan session
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <h6>Sample Queries</h6>
+                    <div class="accordion" id="sampleQueries">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingSamples">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSamples" aria-expanded="false" aria-controls="collapseSamples">
+                                    Example SQL Queries
+                                </button>
+                            </h2>
+                            <div id="collapseSamples" class="accordion-collapse collapse" aria-labelledby="headingSamples" data-bs-parent="#sampleQueries">
+                                <div class="accordion-body">
+                                    <pre style="font-size: 0.8em;"><strong>-- Find hosts with Foxit license compliance</strong>
+SELECT h.ip, h.hostname, 
+       CASE WHEN si.value IS NOT NULL THEN 'Licensed' ELSE 'Unlicensed' END as license_status
+FROM hosts h
+JOIN installed_software isw ON h.ip = isw.ip
+LEFT JOIN system_info si ON h.ip = si.ip AND si.key = 'foxit_license_key'
+WHERE isw.name LIKE '%Foxit%' AND h.status = 'online';
+
+<strong>-- VLAN distribution analysis</strong>
+SELECT 
+    CASE WHEN vlan IS NULL OR vlan = '' THEN 'No VLAN' ELSE 'VLAN ' || vlan END as vlan_group,
+    COUNT(*) as hosts, 
+    ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM hosts WHERE status = 'online'), 2) as percentage
+FROM hosts 
+WHERE status = 'online' 
+GROUP BY vlan_group
+ORDER BY hosts DESC;
+
+<strong>-- Find hosts with multiple open ports</strong>
+SELECT h.ip, h.hostname, COUNT(s.port) as open_ports,
+       GROUP_CONCAT(s.port || ':' || s.service_name, ', ') as services
+FROM hosts h
+JOIN services s ON h.ip = s.ip
+WHERE h.status = 'online'
+GROUP BY h.ip, h.hostname
+HAVING COUNT(s.port) > 5
+ORDER BY open_ports DESC;</pre>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -255,8 +345,8 @@
                                     <span class="badge bg-info">{{ value }}</span>
                                     {% elif 'share_name' in row.keys() and value == row['share_name'] %}
                                     <span class="badge bg-secondary">{{ value }}</span>
-                                    {% elif 'percentage' in row.keys() and 'percentage' in row.keys() | join('') %}
-                                    {{ "%.1f"|format(value) }}%
+                                    {% elif 'percentage' in row.keys() %}
+                                    {% if value is number %}{{ "%.1f"|format(value) }}%{% else %}{{ value }}{% endif %}
                                     {% else %}
                                     {{ value }}
                                     {% endif %}

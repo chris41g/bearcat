@@ -35,3 +35,5 @@ apply_mac_vlan_changes.py
 integrat_mac_vlan.sh
 *.backup
 changes.sh
+update_*.sh
+.gitignore
