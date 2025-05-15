@@ -36,6 +36,7 @@ class ScanJob(db.Model):
     username = db.Column(db.String(100))
     password_hash = db.Column(db.String(128))
     find_foxit = db.Column(db.Boolean, default=False)
+    use_switch_lookup = db.Column(db.Boolean, default=False)
     status = db.Column(db.String(20), default='pending')  # pending, running, completed, failed
     created_by = db.Column(db.Integer, db.ForeignKey('web_users.id'))
     created_at = db.Column(db.DateTime, default=datetime.now)

@@ -35,7 +35,14 @@ class ScanForm(FlaskForm):
     username = StringField('Windows Username (Optional)', validators=[Optional(), Length(max=100)])
     password = PasswordField('Windows Password (Optional)', validators=[Optional()])
     
+    # Hardcoded switch configuration - only password needed
+    
     find_foxit = BooleanField('Search for Foxit PDF License Keys')
+
+    # Switch configuration for MAC/VLAN lookup
+    use_switch_lookup = BooleanField('Enable Switch MAC/VLAN Lookup')
+    switch_password = PasswordField('Switch Password (Optional)', validators=[Optional()])
+
     
     submit = SubmitField('Start Scan')
     

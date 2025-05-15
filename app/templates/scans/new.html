@@ -87,6 +87,30 @@
                 </div>
             </div>
             
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="mb-3 form-check mt-4">
+                        {{ form.use_switch_lookup(class="form-check-input" + (" is-invalid" if form.use_switch_lookup.errors else "")) }}
+                        {{ form.use_switch_lookup.label(class="form-check-label") }}
+                        {% for error in form.use_switch_lookup.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-text">Query managed switch (10.0.1.9) for MAC addresses and VLANs</div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        {{ form.switch_password.label(class="form-label") }}
+                        {{ form.switch_password(class="form-control" + (" is-invalid" if form.switch_password.errors else "")) }}
+                        {% for error in form.switch_password.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-text">Password for switch 10.0.1.9 (user: presidio)</div>
+                    </div>
+                </div>
+            </div>
+            
             <div class="card mb-3 border-info">
                 <div class="card-header bg-info text-white">
                     <h6 class="mb-0"><i class="fas fa-lock me-2"></i>Windows Authentication (Optional)</h6>

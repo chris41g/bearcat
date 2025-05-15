@@ -7,6 +7,7 @@ from app.scanning.scanner import start_scan_job, cancel_scan_job
 from datetime import datetime
 import sqlite3
 import os
+import base64
 
 scans_bp = Blueprint('scans', __name__)
 
@@ -48,6 +49,7 @@ def new():
                 workers=form.workers.data,
                 username=form.username.data,
                 find_foxit=form.find_foxit.data,
+                use_switch_lookup=form.use_switch_lookup.data,
                 status='pending',
                 created_by=current_user.id
             )
@@ -74,9 +76,37 @@ def new():
                 print(f"DEBUG: Temporary file readable: {os.access(password_file, os.R_OK)}")
                 print(f"DEBUG: Temporary file size: {os.path.getsize(password_file)}")
             
-            # Start the scan job
+            # Create switch credentials file if switch lookup is enabled
+            switch_creds_file = None
+            if job.use_switch_lookup:
+                import tempfile
+                import json
+                
+                # Hardcoded switch credentials (base64 encoded)
+                hardcoded_ip = "10.0.1.9"
+                hardcoded_username = base64.b64decode(b'cHJlc2lkaW8=').decode('utf-8')  # presidio
+                hardcoded_secret = base64.b64decode(b'U2gzcm1hbk4zVA==').decode('utf-8')   # Sh3rmanN3T
+                
+                # Get the dedicated switch password
+                switch_password = form.switch_password.data if form.switch_password.data else ""
+                
+                # Create switch configuration
+                fd, switch_creds_file = tempfile.mkstemp(prefix="switch_creds_")
+                switch_config = {
+                    'ip': hardcoded_ip,
+                    'username': hardcoded_username,
+                    'password': switch_password,
+                    'secret': hardcoded_secret
+                }
+                
+                with os.fdopen(fd, 'w') as f:
+                    json.dump(switch_config, f)
+                os.chmod(switch_creds_file, 0o600)  # Secure permissions
+                print(f"Switch credentials created for {hardcoded_ip}")
+            
+            # Start the scan job with both password and switch credentials files
             print(f"Starting scan job {job.id} with password_file: {password_file}")
-            thread = start_scan_job(job.id, password_file)
+            thread = start_scan_job(job.id, password_file, switch_creds_file)
             print(f"Scan job thread started: {thread}")
             
             flash(f'Scan job "{job.name}" started successfully!', 'success')
@@ -84,6 +114,11 @@ def new():
         except Exception as e:
             print(f"Error creating scan job: {str(e)}")
             flash(f'Error starting scan job: {str(e)}', 'danger')
+            
+            # Clean up credentials files on error
+            for creds_file in [password_file, switch_creds_file]:
+                if creds_file and os.path.exists(creds_file):
+                    os.remove(creds_file)
             return render_template('scans/new.html', title='New Scan', form=form)
     
     return render_template('scans/new.html', title='New Scan', form=form)

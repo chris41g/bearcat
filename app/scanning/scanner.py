@@ -98,7 +98,7 @@ def is_scan_already_running(target):
         print(f"Error checking for running scans: {str(e)}")
         return False
 
-def run_scanner(app, job_id, password_file=None):
+def run_scanner(app, job_id, password_file=None, switch_creds_file=None):
     """Run the network scanner script as a subprocess and monitor progress."""
     import sys
     print("********* USING UPDATED SCANNER.PY WITH DUPLICATE PROCESS PREVENTION *********")
@@ -115,6 +115,24 @@ def run_scanner(app, job_id, password_file=None):
             print(f"Read password from file (length: {len(password)})")
         except Exception as e:
             print(f"Error reading password file: {str(e)}")
+    
+    # Get switch credentials if provided
+    switch_config = None
+    if switch_creds_file and os.path.exists(switch_creds_file):
+        try:
+            import json
+            with open(switch_creds_file, 'r') as f:
+                switch_config = json.load(f)
+            # Delete the file after reading
+            os.unlink(switch_creds_file)
+            print(f"Read switch configuration for IP: {switch_config.get('ip', 'unknown')}")
+        except Exception as e:
+            print(f"Error reading switch credentials file: {str(e)}")
+            # Clean up file on error
+            try:
+                os.unlink(switch_creds_file)
+            except:
+                pass
     
     # Get initial job data within app context
     with app.app_context():
@@ -226,6 +244,16 @@ def run_scanner(app, job_id, password_file=None):
             if job_find_foxit:
                 cmd += " --find-foxit-license"
             
+            # Add switch configuration if provided
+            if switch_config:
+                cmd += f" --switch-ip {switch_config['ip']}"
+                cmd += f" --switch-username '{switch_config['username']}'"
+                if switch_config.get('password'):
+                    cmd += f" --switch-password '{switch_config['password']}'"
+                if switch_config.get('secret'):
+                    cmd += f" --switch-secret '{switch_config['secret']}'"
+                print(f"Added switch configuration for {switch_config['ip']}")
+            
             # Write the full command to the script
             f.write(f"sudo {cmd}\n")
         
@@ -257,6 +285,14 @@ def run_scanner(app, job_id, password_file=None):
         
         if job_find_foxit:
             safe_cmd += " --find-foxit-license"
+        
+        # Add switch info to safe command (without credentials)
+        if switch_config:
+            safe_cmd += f" --switch-ip {switch_config['ip']}"
+            safe_cmd += f" --switch-username '{switch_config['username']}'"
+            safe_cmd += " --switch-password '[PASSWORD REDACTED]'"
+            if switch_config.get('secret'):
+                safe_cmd += " --switch-secret '[SECRET REDACTED]'"
         
         # Print environment info for debugging
         print("=== Environment Information ===")
@@ -527,17 +563,85 @@ def run_scanner(app, job_id, password_file=None):
         except Exception as e:
             print(f"Error removing temporary script: {str(e)}")
 
-def start_scan_job(job_id, password_file=None):
+def start_scan_job(job_id, password_file=None, switch_creds_file=None):
     """Start a scan job in a separate thread."""
     from flask import current_app
-    print(f"start_scan_job called for job_id: {job_id}, password_file: {password_file}")
+    print(f"start_scan_job called for job_id: {job_id}, password_file: {password_file}, switch_creds_file: {switch_creds_file}")
     
     try:
         app = current_app._get_current_object()  # Get the actual app object
         print(f"Got current_app object")
         
         # Use threading.Thread directly
-        thread = threading.Thread(target=run_scanner, args=(app, job_id, password_file))
+        thread = threading.Thread(target=run_scanner, args=(app, job_id, password_file, switch_creds_file))
+        thread.daemon = True
+        print(f"Created thread for job_id: {job_id}")
+        
+        # Start the thread
+        thread.start()
+        print(f"Started thread for job_id: {job_id}")
+        
+        return thread
+    except Exception as e:
+        print(f"Error starting scan job thread: {str(e)}")
+        # Try to update the job status to failed
+        try:
+            with current_app.app_context():
+                job = ScanJob.query.get(job_id)
+                if job:
+                    job.status = 'failed'
+                    job.log_output = f"Failed to start scan thread: {str(e)}"
+                    job.completed_at = datetime.now()
+                    db.session.commit()
+        except Exception as inner_e:
+            print(f"Error updating job status: {str(inner_e)}")
+        return None
+
+def start_scan_job(job_id, password_file=None, switch_creds_file=None):
+    """Start a scan job in a separate thread."""
+    from flask import current_app
+    print(f"start_scan_job called for job_id: {job_id}, password_file: {password_file}, switch_creds_file: {switch_creds_file}")
+    
+    try:
+        app = current_app._get_current_object()  # Get the actual app object
+        print(f"Got current_app object")
+        
+        # Use threading.Thread directly
+        thread = threading.Thread(target=run_scanner, args=(app, job_id, password_file, switch_creds_file))
+        thread.daemon = True
+        print(f"Created thread for job_id: {job_id}")
+        
+        # Start the thread
+        thread.start()
+        print(f"Started thread for job_id: {job_id}")
+        
+        return thread
+    except Exception as e:
+        print(f"Error starting scan job thread: {str(e)}")
+        # Try to update the job status to failed
+        try:
+            with current_app.app_context():
+                job = ScanJob.query.get(job_id)
+                if job:
+                    job.status = 'failed'
+                    job.log_output = f"Failed to start scan thread: {str(e)}"
+                    job.completed_at = datetime.now()
+                    db.session.commit()
+        except Exception as inner_e:
+            print(f"Error updating job status: {str(inner_e)}")
+        return None
+
+def start_scan_job(job_id, password_file=None, switch_creds_file=None):
+    """Start a scan job in a separate thread."""
+    from flask import current_app
+    print(f"start_scan_job called for job_id: {job_id}, password_file: {password_file}, switch_creds_file: {switch_creds_file}")
+    
+    try:
+        app = current_app._get_current_object()  # Get the actual app object
+        print(f"Got current_app object")
+        
+        # Use threading.Thread directly
+        thread = threading.Thread(target=run_scanner, args=(app, job_id, password_file, switch_creds_file))
         thread.daemon = True
         print(f"Created thread for job_id: {job_id}")
         
