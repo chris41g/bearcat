@@ -19,8 +19,8 @@ class Config:
     # Network Discovery settings
     DEFAULT_WORKERS = int(os.environ.get('DEFAULT_WORKERS') or 50)
     DEFAULT_SCAN_TYPE = os.environ.get('DEFAULT_SCAN_TYPE') or 'basic'
-    SCANNER_SCRIPT_PATH = os.environ.get('SCANNER_SCRIPT_PATH') or '/opt/sidney/sidney-scanner.py'
-    PYTHON_PATH = os.environ.get('PYTHON_PATH') or 'python3'
+    SCANNER_SCRIPT_PATH = os.environ.get('SCANNER_SCRIPT_PATH') or '/opt/sidney/sidney-sudo-wrapper.sh'
+    PYTHON_PATH = os.environ.get('PYTHON_PATH') or 'bash'
     
     # Authentication
     ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME') or 'admin'

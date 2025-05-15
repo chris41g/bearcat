@@ -30,7 +30,6 @@ CREATE TABLE IF NOT EXISTS hosts (
     hostname TEXT,
     mac_address TEXT,
     vlan TEXT,
-    vlan TEXT,
     os TEXT,
     first_seen TIMESTAMP NOT NULL,
     last_seen TIMESTAMP NOT NULL
@@ -233,11 +232,6 @@ def insert_host_to_db(conn, cursor, host_info, session_id=None):
                     host_info['hostname'],
                     host_info['mac_address'],
                     host_info.get('vlan', ''),
-                    host_info.get('vlan', ''),
-                    host_info.get('vlan', ''),
-                    host_info.get('vlan', ''),
-                    host_info.get('vlan', ''),
-                    host_info.get('vlan', ''),
                     host_info['os'],
                     current_time,
                     host_info['ip']
@@ -252,8 +246,6 @@ def insert_host_to_db(conn, cursor, host_info, session_id=None):
                     host_info['status'],
                     host_info['hostname'],
                     host_info['mac_address'],
-                    host_info.get('vlan', ''),
-                    host_info.get('vlan', ''),
                     host_info.get('vlan', ''),
                     host_info['os'],
                     current_time,
@@ -572,11 +564,20 @@ def scan_host(ip, full_scan=False, username=None, password=None, switch_config=N
     if ping(ip):
         result['status'] = 'online'
         
-        # Try to get MAC address
+        # Try to get MAC address and VLAN
         print(f"\n{Colors.BOLD}Scanning host: {ip}{Colors.ENDC}")
         mac_address, vlan = get_mac_and_vlan(ip, switch_config)
-        result['mac_address'] = mac_address
-        result['vlan'] = vlan
+        
+        # Debug output
+        print(f"DEBUG: MAC={mac_address}, VLAN={vlan}")
+        result['mac_address'] = mac_address if mac_address else ''
+        result['vlan'] = vlan if vlan else ''
+        
+        # Debug output for MAC/VLAN
+        if mac_address:
+            print(f"{Colors.GREEN}Found MAC address: {mac_address}{Colors.ENDC}")
+        if vlan:
+            print(f"{Colors.GREEN}Found VLAN: {vlan}{Colors.ENDC}")
         
         # Try to get hostname
         result['hostname'] = get_improved_hostname(ip, username, password)
