@@ -35,9 +35,12 @@ function initDashboardCharts(chartData) {
         return;
     }
     
-    // VLAN Distribution Bar Chart
+    // VLAN Distribution Bar Chart with count labels
     const vlanCtx = document.getElementById('vlanDistributionChart');
     if (vlanCtx && chartData.vlan_distribution.labels.length > 0) {
+        // Calculate the maximum value to determine padding needed
+        const maxValue = Math.max(...chartData.vlan_distribution.counts);
+        
         vlanChart = new Chart(vlanCtx, {
             type: 'bar',
             data: {
@@ -53,11 +56,22 @@ function initDashboardCharts(chartData) {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                // Add layout padding to accommodate labels
+                layout: {
+                    padding: {
+                        top: 30,  // Extra space at top for labels
+                        left: 0,
+                        right: 0,
+                        bottom: 0
+                    }
+                },
                 scales: {
                     y: {
                         beginAtZero: true,
+                        // Add padding to the max value so labels don't get cut off
+                        max: maxValue * 1.1,
                         ticks: {
-                            stepSize: 1,
+                            stepSize: Math.max(1, Math.floor(maxValue / 10)),
                             precision: 0
                         },
                         title: {
@@ -83,9 +97,45 @@ function initDashboardCharts(chartData) {
                             }
                         }
                     }
+                },
+                // Use animation onComplete callback to draw labels
+                animation: {
+                    onComplete: function() {
+                        const chart = this;
+                        const ctx = chart.ctx;
+                        
+                        ctx.save();
+                        ctx.font = 'bold 14px Arial';
+                        ctx.fillStyle = '#333333';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'bottom';
+                        
+                        chart.data.datasets.forEach((dataset, i) => {
+                            const meta = chart.getDatasetMeta(i);
+                            
+                            meta.data.forEach((element, index) => {
+                                const value = dataset.data[index];
+                                const position = element.tooltipPosition();
+                                
+                                // Draw the count above the bar with extra spacing for tall bars
+                                const labelY = position.y - 8;
+                                ctx.fillText(value, position.x, labelY);
+                            });
+                        });
+                        
+                        ctx.restore();
+                    }
                 }
             }
         });
+        
+        // Force a redraw to ensure labels appear
+        setTimeout(() => {
+            if (vlanChart) {
+                vlanChart.update('none');
+            }
+        }, 100);
+        
     } else {
         console.warn("No VLAN distribution data available or canvas element not found");
     }

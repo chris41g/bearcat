@@ -34,3 +34,4 @@ macscans.py
 apply_mac_vlan_changes.py
 integrat_mac_vlan.sh
 *.backup
+changes.sh
