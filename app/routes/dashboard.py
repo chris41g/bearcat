@@ -94,11 +94,20 @@ def get_db_stats():
         """)
         stats['os_distribution'] = cursor.fetchall()
         
-        # Count top open ports
+        # Count top open ports - Fixed to include service names
         cursor.execute("""
-            SELECT port, COUNT(*) as count
-            FROM services
-            GROUP BY port
+            SELECT 
+                s.port, 
+                CASE 
+                    WHEN s.service_name IS NOT NULL AND s.service_name != 'unknown' 
+                    THEN s.service_name 
+                    ELSE 'unknown' 
+                END as service_name,
+                COUNT(*) as count
+            FROM services s
+            JOIN hosts h ON s.ip = h.ip
+            WHERE h.status = 'online'
+            GROUP BY s.port, service_name
             ORDER BY count DESC
             LIMIT 10
         """)
