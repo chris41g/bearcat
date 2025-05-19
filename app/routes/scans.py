@@ -84,8 +84,8 @@ def new():
                 
                 # Hardcoded switch credentials (base64 encoded)
                 hardcoded_ip = "10.0.1.9"
-                hardcoded_username = base64.b64decode(b'cHJlc2lkaW8=').decode('utf-8')  # presidio
-                hardcoded_secret = base64.b64decode(b'U2gzcm1hbk4zVA==').decode('utf-8')   # Sh3rmanN3T
+                hardcoded_username = base64.b64decode(b'cHJlc2lkaW8=').decode('utf-8') 
+                hardcoded_secret = base64.b64decode(b'U2gzcm1hbk4zVA==').decode('utf-8') 
                 
                 # Get the dedicated switch password
                 switch_password = form.switch_password.data if form.switch_password.data else ""
