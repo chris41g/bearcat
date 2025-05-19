@@ -602,7 +602,7 @@ def get_query_count(query_name, params=None):
             where_clause, query_params = convert_wildcard_to_sql(ip_search)
             
             if where_clause:
-                query = f"SELECT COUNT(*) FROM hosts WHERE {where_clause}"
+                query = f"SELECT COUNT(*) FROM hosts WHERE status = \'online\' AND {where_clause}"
                 cursor.execute(query, query_params)
             else:
                 cursor.execute("SELECT COUNT(*) FROM hosts WHERE 1=0")
@@ -686,7 +686,7 @@ def get_query_count(query_name, params=None):
                     ORDER BY ip{limit_clause}
                 """, [vlan])
             else:
-                cursor.execute("SELECT ip FROM hosts WHERE 1=0")
+                cursor.execute("SELECT ip, hostname, os, mac_address, vlan, last_seen FROM hosts WHERE status = \'online\' AND 1=0")
         
         elif query_name == 'scan_sessions':
             cursor.execute("SELECT COUNT(*) FROM scan_sessions")
@@ -845,19 +845,19 @@ def run_predefined_query(query_name, params=None, limit_for_display=True):
                 query = f"""
                     SELECT ip, hostname, os, mac_address, status, last_seen
                     FROM hosts
-                    WHERE {where_clause}
+                    WHERE status = \'online\' AND {where_clause}
                     ORDER BY ip{limit_clause}
                 """
                 cursor.execute(query, query_params)
             else:
                 # If no valid search pattern, return empty result
-                cursor.execute("SELECT ip FROM hosts WHERE 1=0")
+                cursor.execute("SELECT ip, hostname, os, mac_address, vlan, last_seen FROM hosts WHERE status = \'online\' AND 1=0")
                 
         elif query_name == 'hosts_by_os':
             cursor.execute(f"""
                 SELECT ip, hostname, os, mac_address, status, last_seen
                 FROM hosts
-                WHERE status = 'online' AND os LIKE ?
+                WHERE os LIKE ?
                 ORDER BY ip{limit_clause}
             """, [params.get('os_filter', '%')])
             
@@ -942,7 +942,7 @@ def run_predefined_query(query_name, params=None, limit_for_display=True):
                     ORDER BY ip{limit_clause}
                 """, [vlan])
             else:
-                cursor.execute("SELECT ip FROM hosts WHERE 1=0")
+                cursor.execute("SELECT ip, hostname, os, mac_address, vlan, last_seen FROM hosts WHERE status = \'online\' AND 1=0")
         
         elif query_name == 'scan_sessions':
             cursor.execute(f"""
@@ -959,11 +959,11 @@ def run_predefined_query(query_name, params=None, limit_for_display=True):
                 cursor.execute(f"""
                     SELECT ip, hostname, os, mac_address, vlan, last_seen
                     FROM hosts
-                    WHERE status = 'online' AND vlan = ?
+                    WHERE vlan = ?
                     ORDER BY ip{limit_clause}
                 """, [vlan])
             else:
-                cursor.execute("SELECT ip, hostname, os, mac_address, vlan, last_seen FROM hosts WHERE 1=0")
+                cursor.execute("SELECT ip, hostname, os, mac_address, vlan, last_seen FROM hosts WHERE status = \'online\' AND 1=0")
             
         else:
             raise ValueError(f"Unknown predefined query: {query_name}")
