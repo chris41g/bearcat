@@ -31,8 +31,8 @@
                 </p>
             </div>
             <div class="col-md-6">
-                <p><strong>Created:</strong> {{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
-                <p><strong>Completed:</strong> {{ job.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                <p><strong>Created:</strong> {{ job.created_at.strftime('%a, %b %-d %Y %-I:%M %p') }}</p>
+                <p><strong>Completed:</strong> {{ job.completed_at.strftime('%a, %b %-d %Y %-I:%M %p') }}</p>
                 <p><strong>Online Hosts:</strong> <span class="badge bg-success">{{ job.hosts_online }}</span></p>
             </div>
         </div>

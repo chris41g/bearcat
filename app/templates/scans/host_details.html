@@ -116,11 +116,11 @@
                     </tr>
                     <tr>
                         <th>Scan Started</th>
-                        <td>{{ job.started_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td>{{ job.started_at.strftime('%a, %b %-d %Y %-I:%M %p') }}</td>
                     </tr>
                     <tr>
                         <th>Scan Completed</th>
-                        <td>{{ job.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td>{{ job.completed_at.strftime('%a, %b %-d %Y %-I:%M %p') }}</td>
                     </tr>
                     <tr>
                         <th>Target</th>

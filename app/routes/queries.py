@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import sqlite3
 import json
 import ipaddress
+import pytz
 import re
 import csv
 import io
@@ -969,8 +970,27 @@ def run_predefined_query(query_name, params=None, limit_for_display=True):
         
         results = cursor.fetchall()
         
-        # Convert to list of dicts
-        result_list = [dict(row) for row in results]
+        # Convert to list of dicts and format dates
+        result_list = []
+        for row in results:
+            row_dict = dict(row)
+            # Format any date fields
+            for key, value in row_dict.items():
+                if key in ['last_seen', 'first_seen', 'scan_time', 'start_time', 'end_time'] and value:
+                    try:
+                        # Parse the date string
+                        if isinstance(value, str):
+                            dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                        else:
+                            dt = value
+                        
+                        # Format as requested: "ddd, MMM D YYYY h:MM A"
+                        # Example: "Mon, Jan 1 2024 2:30 PM"
+                        row_dict[key] = dt.strftime('%a, %b %-d %Y %-I:%M %p')
+                    except (ValueError, AttributeError):
+                        # Keep original value if parsing fails
+                        pass
+            result_list.append(row_dict)
         
         conn.close()
         return result_list
@@ -1001,8 +1021,27 @@ def run_custom_query(sql_query, limit_for_display=True):
         cursor.execute(sql_query)
         results = cursor.fetchall()
         
-        # Convert to list of dicts
-        result_list = [dict(row) for row in results]
+        # Convert to list of dicts and format dates
+        result_list = []
+        for row in results:
+            row_dict = dict(row)
+            # Format any date fields
+            for key, value in row_dict.items():
+                if key in ['last_seen', 'first_seen', 'scan_time', 'start_time', 'end_time'] and value:
+                    try:
+                        # Parse the date string
+                        if isinstance(value, str):
+                            dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                        else:
+                            dt = value
+                        
+                        # Format as requested: "ddd, MMM D YYYY h:MM A"
+                        # Example: "Mon, Jan 1 2024 2:30 PM"
+                        row_dict[key] = dt.strftime('%a, %b %-d %Y %-I:%M %p')
+                    except (ValueError, AttributeError):
+                        # Keep original value if parsing fails
+                        pass
+            result_list.append(row_dict)
         
         conn.close()
         return result_list
